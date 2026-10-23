@@ -10,27 +10,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <style>
-      body { margin: 0; font-family: 'DM Sans', sans-serif; background: #f7f6f2; color: #191919; }
-      .local-help { max-width: 640px; margin: 10vh auto; padding: 32px; line-height: 1.6; }
-      .local-help h1 { font-family: 'Space Grotesk', sans-serif; font-size: clamp(28px, 5vw, 42px); line-height: 1.1; }
-      .local-help code { background: #e9e7e0; border-radius: 5px; padding: 3px 6px; }
-      .local-help pre { overflow-x: auto; padding: 16px; border-radius: 10px; background: #191919; color: #fff; }
-      .local-help p { color: #555; }
-    </style>
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      if (window.location.protocol === 'file:') {
-        document.getElementById('root').innerHTML = '<main class="local-help"><p>A THOUSAND UNITS · LOCAL PREVIEW</p><h1>This React app needs a local server.</h1><p>This is not a broken page. Chrome cannot run the TypeScript/React source directly from this file. Start the project using the steps below, then open the local address Vite provides.</p><pre>npm install\nnpm run dev</pre><p>Run these commands from the extracted project folder. For a hosted website, run <code>npm run build</code> and upload the contents of <code>dist</code>.</p></main>';
-      } else {
-        const script = document.createElement('script');
-        script.type = 'module';
-        script.src = './src/main.tsx';
-        document.body.appendChild(script);
-      }
-    </script>
-    <noscript>This app requires JavaScript. Enable JavaScript and run the project through Vite.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
