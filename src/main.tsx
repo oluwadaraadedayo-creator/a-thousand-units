@@ -13,28 +13,28 @@ const art = {
   // unsplash-*.jpg placeholders were not included in the repository and returned 404s.
   cover1:asset('/images/album-afroskankin.jpg'),
   cover2:asset('/images/album-african-gangsta.jpg'),
-  cover3:asset('/images/album-ipseity.jpg'),
+  cover3:asset('/images/album-ipseity-new.png'),
   cover4:asset('/images/album-jagaban-times.jpg'),
   cover5:asset('/images/album-best-ever.jpg'),
   cover6:asset('/images/album-no-sign-of-weakness.jpg'),
   cover7:asset('/images/album-oriade.jpg'),
-  cover8:asset('/images/album-west-african-goat.jpg'),
+  cover8:asset('/images/album-west-african-goat-new.png'),
   artist1:asset('/images/album-afroskankin.jpg'),
-  artist2:asset('/images/album-ipseity.jpg'),
-  artist3:asset('/images/album-ipseity.jpg'),
-  artist4:asset('/images/album-west-african-goat.jpg')
+  artist2:asset('/images/album-ipseity-new.png'),
+  artist3:asset('/images/album-ipseity-new.png'),
+  artist4:asset('/images/album-west-african-goat-new.png')
 }
 const seed:Release[] = [
  {id:'album-afroskankin',title:'Afroskankin',artist:'PayBac Iboro',artistId:'paybac-iboro',type:'Album',price:3500,image:asset('/images/album-afroskankin.jpg'),description:'Afroskankin, an album by PayBac Iboro.',tracks:[],tag:'Featured',benefits:['Digital album'],date:'2026-09-30',plays:'2.4k'},
  {id:'album-african-gangsta',title:'African Gangsta',artist:'2groovy',artistId:'2groovy',type:'Album',price:3500,image:asset('/images/album-african-gangsta.jpg'),description:'African Gangsta, an album by 2groovy.',tracks:[],tag:'New',benefits:['Digital album'],date:'2025-12-02',plays:'1.8k'},
- {id:'album-ipseity',title:'Ipseity',artist:'Oba Lurge',artistId:'oba-lurge',type:'Album',price:3500,image:asset('/images/album-ipseity.jpg'),description:'Ipseity, an album by Oba Lurge.',tracks:[],tag:'New',benefits:['Digital album'],date:'2025-11-27',plays:'980'},
+ {id:'album-ipseity',title:'Ipseity',artist:'Oba Lurge',artistId:'oba-lurge',type:'Album',price:3500,image:asset('/images/album-ipseity-new.png'),description:'Ipseity, an album by Oba Lurge.',tracks:[],tag:'New',benefits:['Digital album'],date:'2025-11-27',plays:'980'},
  {id:'album-jagaban-times',title:'Jagaban Times',artist:'Mainland Boyz',artistId:'mainland-boyz',type:'Album',price:3500,image:asset('/images/album-jagaban-times.jpg'),description:'Jagaban Times by Mainland Boyz.',tracks:[],tag:'Featured',benefits:['Digital album'],date:'2026-01-01',plays:'3.1k'},
  {id:'album-best-ever',title:'Best Ever',artist:'Oba Lurge',artistId:'oba-lurge',type:'Album',price:3500,image:asset('/images/album-best-ever.jpg'),description:'Best Ever, an album by Oba Lurge.',tracks:[],tag:'Trending',benefits:['Digital album'],date:'2025-01-01',plays:'1.2k'},
  {id:'album-no-sign-of-weakness',title:'No Sign Of Weakness',artist:'Burna Boy',artistId:'burna-boy',type:'Album',price:5000,image:asset('/images/album-no-sign-of-weakness.jpg'),description:'No Sign Of Weakness, an album by Burna Boy.',tracks:[],tag:'Popular',benefits:['Digital album'],date:'2025-07-11',plays:'4.1k'},
  {id:'album-oriade',title:'Oriade',artist:'Davido',artistId:'davido',type:'Album',price:5000,image:asset('/images/album-oriade.jpg'),description:'Oriade, an album by Davido.',tracks:[],tag:'New',benefits:['Digital album'],date:'2026-07-31',plays:'3.6k'},
  {id:'album-morayo',title:'Morayo',artist:'Wizkid',artistId:'wizkid',type:'Album',price:5000,image:asset('/images/album-morayo.jpg'),description:'Morayo, an album by Wizkid.',tracks:[],tag:'Popular',benefits:['Digital album'],date:'2024-11-22',plays:'4.4k'},
  {id:'album-of-the-year',title:'Album of The Year',artist:'PayBac Iboro & Pizzo Da LP',artistId:'paybac-iboro-pizzo-da-lp',type:'Album',price:3500,image:asset('/images/album-of-the-year.jpg'),description:'Album of The Year, the collaborative project by PayBac Iboro and Pizzo Da LP.',tracks:[],tag:'Featured',benefits:['Digital album'],date:'2022-12-17',plays:'1.5k'},
- {id:'album-west-african-goat',title:'West African Goat',artist:'PayBac Iboro',artistId:'paybac-iboro',type:'Album',price:3500,image:asset('/images/album-west-african-goat.jpg'),description:'West African Goat, an album by PayBac Iboro.',tracks:[],tag:'Classic',benefits:['Digital album'],date:'2022-05-20',plays:'2.8k'}
+ {id:'album-west-african-goat',title:'West African Goat',artist:'PayBac Iboro',artistId:'paybac-iboro',type:'Album',price:3500,image:asset('/images/album-west-african-goat-new.png'),description:'West African Goat, an album by PayBac Iboro.',tracks:[],tag:'Classic',benefits:['Digital album'],date:'2022-05-20',plays:'2.8k'}
 ]
 const money=(n:number)=>new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:0}).format(n)
 function readLocal<T>(key:string,fallback:T):T { try { const s=localStorage.getItem(key); return s?JSON.parse(s) as T:fallback } catch { return fallback } }
