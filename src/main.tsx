@@ -9,18 +9,20 @@ const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+
 type Release = { id:string; title:string; artist:string; artistId:string; type:string; price:number; image:string; description:string; tracks:string[]; tag?:string; benefits?:string[]; date:string; plays?:string; published?:boolean }
 type Page = 'explore'|'detail'|'checkout'|'library'|'artist'|'admin'|'signin'
 const art = {
-  cover1:asset('/images/unsplash-01.jpg'),
-  cover2:asset('/images/unsplash-02.jpg'),
-  cover3:asset('/images/unsplash-03.jpg'),
-  cover4:asset('/images/unsplash-04.jpg'),
-  cover5:asset('/images/unsplash-05.jpg'),
-  cover6:asset('/images/unsplash-06.jpg'),
-  cover7:asset('/images/unsplash-07.jpg'),
-  cover8:asset('/images/unsplash-08.jpg'),
-  artist1:asset('/images/unsplash-09.jpg'),
-  artist2:asset('/images/unsplash-10.jpg'),
-  artist3:asset('/images/unsplash-09.jpg'),
-  artist4:asset('/images/unsplash-11.jpg')
+  // Use image files that are actually present in public/images. The former
+  // unsplash-*.jpg placeholders were not included in the repository and returned 404s.
+  cover1:asset('/images/album-afroskankin.jpg'),
+  cover2:asset('/images/album-african-gangsta.jpg'),
+  cover3:asset('/images/album-ipseity.jpg'),
+  cover4:asset('/images/album-jagaban-times.jpg'),
+  cover5:asset('/images/album-best-ever.jpg'),
+  cover6:asset('/images/album-no-sign-of-weakness.jpg'),
+  cover7:asset('/images/album-oriade.jpg'),
+  cover8:asset('/images/album-morayo.jpg'),
+  artist1:asset('/images/album-afroskankin.jpg'),
+  artist2:asset('/images/album-african-gangsta.jpg'),
+  artist3:asset('/images/album-ipseity.jpg'),
+  artist4:asset('/images/album-jagaban-times.jpg')
 }
 const seed:Release[] = [
  {id:'album-afroskankin',title:'Afroskankin',artist:'PayBac Iboro',artistId:'paybac-iboro',type:'Album',price:3500,image:asset('/images/album-afroskankin.jpg'),description:'Afroskankin, an album by PayBac Iboro.',tracks:[],tag:'Featured',benefits:['Digital album'],date:'2026-09-30',plays:'2.4k'},
