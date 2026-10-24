@@ -18,11 +18,11 @@ const art = {
   cover5:asset('/images/album-best-ever.jpg'),
   cover6:asset('/images/album-no-sign-of-weakness.jpg'),
   cover7:asset('/images/album-oriade.jpg'),
-  cover8:asset('/images/album-morayo.jpg'),
+  cover8:asset('/images/album-west-african-goat.jpg'),
   artist1:asset('/images/album-afroskankin.jpg'),
-  artist2:asset('/images/album-african-gangsta.jpg'),
+  artist2:asset('/images/album-ipseity.jpg'),
   artist3:asset('/images/album-ipseity.jpg'),
-  artist4:asset('/images/album-jagaban-times.jpg')
+  artist4:asset('/images/album-west-african-goat.jpg')
 }
 const seed:Release[] = [
  {id:'album-afroskankin',title:'Afroskankin',artist:'PayBac Iboro',artistId:'paybac-iboro',type:'Album',price:3500,image:asset('/images/album-afroskankin.jpg'),description:'Afroskankin, an album by PayBac Iboro.',tracks:[],tag:'Featured',benefits:['Digital album'],date:'2026-09-30',plays:'2.4k'},
@@ -40,7 +40,7 @@ const money=(n:number)=>new Intl.NumberFormat('en-NG',{style:'currency',currency
 function readLocal<T>(key:string,fallback:T):T { try { const s=localStorage.getItem(key); return s?JSON.parse(s) as T:fallback } catch { return fallback } }
 function writeLocal<T>(key:string,value:T):void { try { localStorage.setItem(key,JSON.stringify(value)) } catch { /* Storage can be disabled or full; keep the app usable in memory. */ } }
 function App(){
- const [page,setPage]=useState<Page>('explore'); const [releases,setReleases]=useState<Release[]>(()=>{const saved=readLocal<unknown>('atu_releases',null);const hasCurrentSeed=Array.isArray(saved)&&seed.every(r=>saved.some((x:any)=>x&&typeof x==='object'&&x.id===r.id));return hasCurrentSeed?saved as Release[]:seed}); const [selected,setSelected]=useState<Release>(seed[0]); const [search,setSearch]=useState(''); const [category,setCategory]=useState('All'); const [slide,setSlide]=useState(0); const [menuOpen,setMenuOpen]=useState(false); const [showSearch,setShowSearch]=useState(false); const [toast,setToast]=useState(''); const [checkoutEmail,setCheckoutEmail]=useState(''); const [pendingOrder,setPendingOrder]=useState(false); const [draft,setDraft]=useState({title:'',artist:'',type:'EP',price:'3500',description:'',tracks:'',image:''}); const [draftMode,setDraftMode]=useState<'new'|'edit'>('new'); const [editingId,setEditingId]=useState<string|null>(null); const [tab,setTab]=useState<'overview'|'releases'|'orders'>('overview'); const [showDemoInfo,setShowDemoInfo]=useState(false)
+ const [page,setPage]=useState<Page>('explore'); const [releases,setReleases]=useState<Release[]>(()=>{const saved=readLocal<unknown>('atu_releases',null);const hasCurrentSeed=Array.isArray(saved)&&seed.every(r=>saved.some((x:any)=>x&&typeof x==='object'&&x.id===r.id));if(!hasCurrentSeed)return seed;return seed.map(r=>{const existing=(saved as Release[]).find(x=>x.id===r.id);return existing?{...existing,image:r.image}:r}).concat((saved as Release[]).filter(x=>!seed.some(r=>r.id===x.id)))}); const [selected,setSelected]=useState<Release>(seed[0]); const [search,setSearch]=useState(''); const [category,setCategory]=useState('All'); const [slide,setSlide]=useState(0); const [menuOpen,setMenuOpen]=useState(false); const [showSearch,setShowSearch]=useState(false); const [toast,setToast]=useState(''); const [checkoutEmail,setCheckoutEmail]=useState(''); const [pendingOrder,setPendingOrder]=useState(false); const [draft,setDraft]=useState({title:'',artist:'',type:'EP',price:'3500',description:'',tracks:'',image:''}); const [draftMode,setDraftMode]=useState<'new'|'edit'>('new'); const [editingId,setEditingId]=useState<string|null>(null); const [tab,setTab]=useState<'overview'|'releases'|'orders'>('overview'); const [showDemoInfo,setShowDemoInfo]=useState(false)
  useEffect(()=>{writeLocal('atu_releases',releases)},[releases]);
  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),3200);return()=>clearTimeout(t)},[toast]);
  const featured=useMemo(()=>[...releases].filter(r=>r.published!==false).slice(0,4),[releases]);
