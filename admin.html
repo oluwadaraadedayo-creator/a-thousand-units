@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>ATU Admin</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Instrument+Sans:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--paper:#ECEEF3;--panel:#fff;--ink:#14161F;--mute:#636879;--line:#D6D9E2;--accent:#2B3BFF;--danger:#E5391C;--ok:#12805C}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:15px/1.5 "Instrument Sans",system-ui,sans-serif;background:var(--paper);color:var(--ink)}
+h1,h2,.brand{font-family:"Bricolage Grotesque",system-ui,sans-serif;letter-spacing:-.02em;margin:0}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 14px}
+button:hover{border-color:var(--ink)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.danger{color:var(--danger)}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input,textarea{border:1px solid var(--line);border-radius:8px;padding:9px 12px;background:var(--panel);width:100%}
+.hidden{display:none!important}
+#login{min-height:100%;display:grid;place-items:center;padding:24px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;width:100%;max-width:380px;display:grid;gap:12px}
+.card h1{font-size:28px}
+.err{color:var(--danger);min-height:1.4em;font-size:14px}
+#app{display:grid;grid-template-columns:220px 1fr;height:100%}
+aside{background:var(--ink);color:#fff;padding:22px 16px;display:flex;flex-direction:column;gap:18px;overflow:auto}
+.brand{font-size:22px;font-weight:700}
+aside small{color:#9AA0B5}
+.recent{display:grid;gap:4px}
+.recent button{background:transparent;border:0;color:#D5D8E6;text-align:left;padding:7px 10px;border-radius:6px}
+.recent button:hover,.recent button.on{background:#262A3B;color:#fff}
+main{padding:24px;overflow:auto;min-width:0}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:16px 0}
+.bar input{max-width:260px}
+.tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:68vh}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis}
+th{position:sticky;top:0;background:#F6F7FA;font-weight:600;z-index:1}
+tr:hover td{background:#F9FAFD}
+td.act{display:flex;gap:6px}
+td.act button{padding:4px 10px;font-size:13px}
+.note{color:var(--mute);font-size:14px}
+dialog{border:1px solid var(--line);border-radius:14px;padding:22px;width:min(640px,92vw)}
+dialog::backdrop{background:rgba(20,22,31,.5)}
+dialog textarea{height:320px;font-family:ui-monospace,Menlo,monospace;font-size:13px}
+.row{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
+#toast{position:fixed;bottom:20px;right:20px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.show{opacity:1}
+@media(max-width:720px){#app{grid-template-columns:1fr;grid-template-rows:auto 1fr}aside{flex-direction:row;align-items:center;flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<section id="login">
+  <div class="card">
+    <h1>ATU Admin</h1>
+    <input id="email" type="email" placeholder="Email" autocomplete="username">
+    <input id="pass" type="password" placeholder="Password" autocomplete="current-password">
+    <button class="primary" id="signin">Sign in</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</section>
+
+<section id="app" class="hidden">
+  <aside>
+    <div><div class="brand">ATU Admin</div><small id="who"></small></div>
+    <div>
+      <small>Recent tables</small>
+      <div class="recent" id="recent"></div>
+    </div>
+    <button id="signout">Sign out</button>
+  </aside>
+  <main>
+    <h1>Data browser</h1>
+    <p class="note">Open any table to view, edit, add or delete rows. Purpose-built screens for users, artists, music, orders and withdrawals come next.</p>
+    <div class="bar">
+      <input id="tname" placeholder="Table name">
+      <button class="primary" id="load">Open</button>
+      <input id="filter" placeholder="Filter loaded rows">
+      <button id="add">Add row</button>
+      <span class="note" id="count"></span>
+    </div>
+    <div class="tablewrap"><table id="grid"></table></div>
+  </main>
+</section>
+
+<dialog id="dlg">
+  <h2 id="dlgTitle">Edit row</h2>
+  <p class="note">Edit the JSON, then save.</p>
+  <textarea id="json" spellcheck="false"></textarea>
+  <div class="err" id="dlgErr"></div>
+  <div class="row"><button id="cancel">Cancel</button><button class="primary" id="save">Save changes</button></div>
+</dialog>
+<div id="toast" role="status"></div>
+
+<script>
+// Paste your Supabase project URL and ANON (public) key. Never the service role key.
+const SUPABASE_URL = "PASTE_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "PASTE_SUPABASE_ANON_KEY";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+let table = "", rows = [], pk = "id", editing = null;
+
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+async function boot(){
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session) return show(false);
+  const {data,error} = await sb.from("admins").select("user_id").eq("user_id",session.user.id).maybeSingle();
+  if(error || !data){ await sb.auth.signOut(); $("loginErr").textContent="This account is not an admin."; return show(false); }
+  $("who").textContent = session.user.email;
+  show(true); renderRecent();
+}
+function show(on){$("login").classList.toggle("hidden",on);$("app").classList.toggle("hidden",!on)}
+
+$("signin").onclick = async()=>{
+  $("loginErr").textContent="";
+  const {error} = await sb.auth.signInWithPassword({email:$("email").value.trim(),password:$("pass").value});
+  if(error) return $("loginErr").textContent=error.message;
+  boot();
+};
+$("pass").addEventListener("keydown",e=>{if(e.key==="Enter")$("signin").click()});
+$("signout").onclick = async()=>{await sb.auth.signOut();location.reload()};
+
+function recents(){try{return JSON.parse(localStorage.getItem("atu_recent")||"[]")}catch(e){return[]}}
+function remember(t){try{localStorage.setItem("atu_recent",JSON.stringify([t,...recents().filter(x=>x!==t)].slice(0,12)))}catch(e){}renderRecent()}
+function renderRecent(){
+  $("recent").innerHTML = recents().map(t=>`<button class="${t===table?"on":""}" data-t="${esc(t)}">${esc(t)}</button>`).join("") || '<small>None yet</small>';
+  $("recent").querySelectorAll("button[data-t]").forEach(b=>b.onclick=()=>{$("tname").value=b.dataset.t;load()});
+}
+
+async function load(){
+  const t = $("tname").value.trim(); if(!t) return;
+  const {data,error} = await sb.from(t).select("*").limit(200);
+  if(error){toast(error.message);return}
+  table=t; rows=data||[]; remember(t);
+  pk = rows[0] ? (["id","user_id","uuid"].find(k=>k in rows[0]) || Object.keys(rows[0])[0]) : "id";
+  draw();
+}
+function draw(){
+  const q = $("filter").value.toLowerCase();
+  const list = rows.filter(r=>!q||JSON.stringify(r).toLowerCase().includes(q));
+  $("count").textContent = `${list.length} of ${rows.length} rows (max 200 loaded)`;
+  if(!rows.length){$("grid").innerHTML='<tr><td class="note">No rows, or this account has no access to this table.</td></tr>';return}
+  const cols = Object.keys(rows[0]);
+  $("grid").innerHTML = "<thead><tr>"+cols.map(c=>`<th>${esc(c)}</th>`).join("")+"<th></th></tr></thead><tbody>"+
+    list.map(r=>"<tr>"+cols.map(c=>`<td title="${esc(typeof r[c]==="object"?JSON.stringify(r[c]):r[c]??"")}">${esc(typeof r[c]==="object"&&r[c]!==null?JSON.stringify(r[c]):r[c]??"")}</td>`).join("")+
+    `<td class="act"><button data-e="${esc(r[pk])}">Edit</button><button class="danger" data-d="${esc(r[pk])}">Delete</button></td></tr>`).join("")+"</tbody>";
+  $("grid").querySelectorAll("[data-e]").forEach(b=>b.onclick=()=>openEdit(rows.find(r=>String(r[pk])===b.dataset.e)));
+  $("grid").querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>del(b.dataset.d));
+}
+function openEdit(r){
+  editing = r; $("dlgTitle").textContent = r ? "Edit row" : "Add row";
+  $("json").value = JSON.stringify(r || (rows[0]?Object.fromEntries(Object.keys(rows[0]).map(k=>[k,null])):{}),null,2);
+  $("dlgErr").textContent=""; $("dlg").showModal();
+}
+$("add").onclick = ()=>{ if(!table) return toast("Open a table first"); openEdit(null) };
+$("cancel").onclick = ()=>$("dlg").close();
+$("save").onclick = async()=>{
+  let obj; try{obj=JSON.parse($("json").value)}catch(e){return $("dlgErr").textContent="Invalid JSON: "+e.message}
+  const res = editing ? await sb.from(table).update(obj).eq(pk,editing[pk]).select() : await sb.from(table).insert(obj).select();
+  if(res.error) return $("dlgErr").textContent=res.error.message;
+  if(!res.data || !res.data.length) return $("dlgErr").textContent="Nothing changed. Check the RLS admin policy on this table.";
+  $("dlg").close(); toast("Saved"); load();
+};
+async function del(id){
+  if(!confirm(`Delete this row from ${table}? This cannot be undone.`)) return;
+  const {data,error} = await sb.from(table).delete().eq(pk,id).select();
+  if(error) return toast(error.message);
+  if(!data.length) return toast("Nothing deleted. Check the RLS admin policy.");
+  toast("Deleted"); load();
+}
+$("load").onclick = load;
+$("tname").addEventListener("keydown",e=>{if(e.key==="Enter")load()});
+$("filter").addEventListener("input",draw);
+boot();
+</script>
+</body>
+</html>
