@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, AudioLines, BadgeCheck, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Disc3, Download, Headphones, Heart, Library, LockKeyhole, LogIn, Menu, Music2, Plus, Search, ShieldCheck, ShoppingBag, SlidersHorizontal, Sparkles, TrendingUp, Upload, Wallet, X } from 'lucide-react'
 import './styles.css'
+import { supabase } from './supabase'
 
 // Prefix public assets with Vite's deployment base so GitHub Pages subpaths work.
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
@@ -42,6 +43,15 @@ function writeLocal<T>(key:string,value:T):void { try { localStorage.setItem(key
 function App(){
  const [page,setPage]=useState<Page>('explore'); const [releases,setReleases]=useState<Release[]>(()=>{const saved=readLocal<unknown>('atu_releases',null);const hasCurrentSeed=Array.isArray(saved)&&seed.every(r=>saved.some((x:any)=>x&&typeof x==='object'&&x.id===r.id));if(!hasCurrentSeed)return seed;return seed.map(r=>{const existing=(saved as Release[]).find(x=>x.id===r.id);return existing?{...existing,image:r.image}:r}).concat((saved as Release[]).filter(x=>!seed.some(r=>r.id===x.id)))}); const [selected,setSelected]=useState<Release>(seed[0]); const [search,setSearch]=useState(''); const [category,setCategory]=useState('All'); const [slide,setSlide]=useState(0); const [menuOpen,setMenuOpen]=useState(false); const [showSearch,setShowSearch]=useState(false); const [toast,setToast]=useState(''); const [checkoutEmail,setCheckoutEmail]=useState(''); const [pendingOrder,setPendingOrder]=useState(false); const [draft,setDraft]=useState({title:'',artist:'',type:'EP',price:'3500',description:'',tracks:'',image:''}); const [draftMode,setDraftMode]=useState<'new'|'edit'>('new'); const [editingId,setEditingId]=useState<string|null>(null); const [tab,setTab]=useState<'overview'|'releases'|'orders'>('overview'); const [showDemoInfo,setShowDemoInfo]=useState(false)
  useEffect(()=>{writeLocal('atu_releases',releases)},[releases]);
+   useEffect(()=>{
+  if(!supabase) return
+  supabase.from('products').select('id,title,description,product_type,artwork_path,price_minor,tracklist,benefits,published_at,creator:profiles(id,display_name)').eq('status','published').order('published_at',{ascending:false}).then(({data,error})=>{
+   if(error||!data?.length) return
+   const types:Record<string,string>={single:'Single',ep:'EP',album:'Album',live_recording:'Live recording',video:'Video',bundle:'Bundle'}
+   const live:Release[]=data.map((p:any)=>({id:p.id,title:p.title,artist:p.creator?.display_name??'Unknown artist',artistId:p.creator?.id??'',type:types[p.product_type]??'Album',price:p.price_minor/100,image:p.artwork_path||'',description:p.description,tracks:Array.isArray(p.tracklist)?p.tracklist:[],benefits:Array.isArray(p.benefits)&&p.benefits.length?p.benefits:['Digital album'],date:(p.published_at||'').slice(0,10),plays:'0',published:true}))
+   setReleases(prev=>[...live,...prev.filter(r=>seed.some(s=>s.id===r.id))])
+  })
+ },[])
  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),3200);return()=>clearTimeout(t)},[toast]);
  const featured=useMemo(()=>[...releases].filter(r=>r.published!==false).slice(0,4),[releases]);
  const filtered=useMemo(()=>releases.filter(r=>r.published!==false && (category==='All'||(category==='Albums & EPs'&&/Album|EP/.test(r.type))||(category==='Singles'&&r.type.includes('Single'))||(category==='Live & Video'&&/Live|Video/.test(r.type))||(category==='Exclusive'&&(r.tag==='Exclusive'||!!r.benefits?.length))) && `${r.title} ${r.artist} ${r.type}`.toLowerCase().includes(search.toLowerCase())),[releases,category,search]);
