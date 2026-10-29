@@ -34,3 +34,20 @@
     height: 70px;
   }
 }
+
+/* Pay what you want, campaigns, plaques, auth */
+.campaign-card{border:1px solid var(--line);background:#fbfaf7;padding:20px;margin:22px 0}
+.campaign-card h3{font-family:var(--serif);font-size:19px;letter-spacing:-.035em;margin:8px 0 14px}
+.campaign-card p{font-size:11px;color:#6d7066;margin:10px 0 0}
+.progress{height:10px;background:#e6e7dd;border-radius:10px;overflow:hidden;display:flex}
+.progress span{background:#7b8d32;display:block;height:100%}
+.progress i{background:repeating-linear-gradient(45deg,#c9d68a,#c9d68a 4px,#e2e8bd 4px,#e2e8bd 8px);display:block;height:100%}
+.plaque-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.plaque{display:flex;align-items:center;gap:10px;border:1px solid #cfd3b4;background:#f4f7e4;padding:10px 14px;border-radius:3px}
+.plaque svg{color:#6f7e2c;flex-shrink:0}
+.plaque b{display:block;font-size:11px;font-family:var(--serif);letter-spacing:-.02em}
+.plaque span{font-size:9px;color:#7d806f}
+.plaque-goal{background:#d4ff3f;border-color:#b8e02a}
+.plaque-goal svg{color:#1c1e16}
+.campaign-list{display:grid;gap:8px}
+.pwyw-note{display:inline-block;background:#e9eadf;font-size:9px;font-weight:700;padding:5px 8px;letter-spacing:.06em;margin-top:6px}
