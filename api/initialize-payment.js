@@ -45,6 +45,7 @@ export default async function handler(req, res) {
     })
     const payload = await response.json()
     if (!response.ok || !payload.status || !payload.data?.authorization_url) {
+            console.error('paystack init failed', response.status, JSON.stringify(payload))
       await db.from('orders').update({ status: 'payment_initialization_failed' }).eq('id', order.id)
       return res.status(502).json({ error: 'Payment provider could not initialise checkout' })
     }
