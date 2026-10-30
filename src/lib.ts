@@ -62,3 +62,19 @@ export async function apiCall<T = any>(path: string, opts: { method?: string; bo
 }
 
 export type { Session }
+
+// Category helpers. The categories table in the database is the source of truth; this list is only a fallback
+// so the homepage filters still render if that request fails.
+export const groupOf = (slug?: string): 'music' | 'fashion' | 'others' => slug?.startsWith('music_') ? 'music' : slug?.startsWith('fashion_') ? 'fashion' : 'others'
+export const CATEGORIES_FALLBACK: Category[] = [
+  { slug: 'music_artist', group_name: 'music', label: 'Artist', fulfillment: 'digital', enabled: true, sort: 1 },
+  { slug: 'music_producer', group_name: 'music', label: 'Producer', fulfillment: 'digital', enabled: false, sort: 2 },
+  { slug: 'music_dj', group_name: 'music', label: 'DJ', fulfillment: 'digital', enabled: true, sort: 3 },
+  { slug: 'fashion_merch', group_name: 'fashion', label: 'Merch', fulfillment: 'physical', enabled: false, sort: 4 },
+  { slug: 'fashion_streetwear', group_name: 'fashion', label: 'Streetwear', fulfillment: 'physical', enabled: false, sort: 5 },
+  { slug: 'fashion_footies', group_name: 'fashion', label: 'Footies', fulfillment: 'physical', enabled: false, sort: 6 },
+  { slug: 'others_crochet', group_name: 'others', label: 'Crochet', fulfillment: 'physical', enabled: false, sort: 7 },
+  { slug: 'others_collectors', group_name: 'others', label: 'Collector items', fulfillment: 'physical', enabled: false, sort: 8 },
+  { slug: 'others_art', group_name: 'others', label: 'Art', fulfillment: 'physical', enabled: false, sort: 9 }
+]
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

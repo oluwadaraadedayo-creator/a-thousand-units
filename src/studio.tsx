@@ -21,8 +21,8 @@ function Metric({ icon, label, value, note }: { icon: React.ReactNode; label: st
   return <div className="metric-card"><div className="metric-top"><span className="metric-icon">{icon}</span></div><span className="metric-label">{label}</span><strong>{value}</strong><span className="metric-foot">{note}</span></div>
 }
 
-export function ArtistStudio({ profile, setToast, onSignOut }: { profile: Profile; setToast: (m: string) => void; openRelease?: (r: Release) => void; onSignOut?: () => void }) {
-  const [tab, setTab] = useState<'overview' | 'releases' | 'campaigns' | 'sales' | 'payouts'>('overview')
+export function ArtistStudio({ profile, setToast, onSignOut, onProfileUpdated }: { profile: Profile; setToast: (m: string) => void; openRelease?: (r: Release) => void; onSignOut?: () => void; onProfileUpdated?: (u: Partial<Profile>) => void }) {
+  const [tab, setTab] = useState<'overview' | 'releases' | 'campaigns' | 'sales' | 'payouts' | 'page'>('overview')
   const [products, setProducts] = useState<(Release & { status: string; raw: any })[]>([])
   const [campaigns, setCampaigns] = useState<CampaignProgress[]>([])
   const [orders, setOrders] = useState<Order[]>([])
@@ -39,6 +39,24 @@ export function ArtistStudio({ profile, setToast, onSignOut }: { profile: Profil
   const [banks, setBanks] = useState<{ name: string; code: string }[]>([])
   const [bank, setBank] = useState({ code: '', number: '' })
   const [busy, setBusy] = useState(false)
+  const [pf, setPf] = useState({ name: profile.display_name, bio: '' })
+  const pageLink = `${window.location.origin}${window.location.pathname}#/artist/${profile.id}`
+  useEffect(() => {
+    if (tab !== 'page' || !supabase) return
+    supabase.from('profiles').select('display_name,bio').eq('id', profile.id).maybeSingle().then(({ data }) => { if (data) setPf({ name: (data as any).display_name, bio: (data as any).bio || '' }) })
+  }, [tab])
+  const savePage = async () => {
+    if (!supabase || busy) return
+    const name = pf.name.trim(); const bio = pf.bio.trim()
+    if (name.length < 2 || name.length > 40) return setToast('Your name must be 2 to 40 characters.')
+    if (bio.length > 300) return setToast('Keep your bio under 300 characters.')
+    setBusy(true)
+    const { error } = await supabase.from('profiles').update({ display_name: name, bio: bio || null }).eq('id', profile.id)
+    setBusy(false)
+    if (error) return setToast(error.message)
+    setToast('Public page saved.'); onProfileUpdated?.({ display_name: name })
+  }
+  const copyPageLink = async () => { try { await navigator.clipboard.writeText(pageLink); setToast('Link copied.') } catch { setToast('Copy the link from the box.') } }
 
   const load = useCallback(async () => {
     if (!supabase) return
@@ -193,7 +211,7 @@ export function ArtistStudio({ profile, setToast, onSignOut }: { profile: Profil
   const gross = orders.reduce((s, o) => s + o.amount_minor, 0); const fees = orders.reduce((s, o) => s + (o.platform_fee_minor || 0), 0)
   const plaqueCount = campaigns.reduce((s, c) => s + c.plaques.length, 0)
   const canUpload = !!d.id && standing.accepted && profile.verified_artist && !standing.suspended
-  const tabs = [['overview', 'Overview'], ['releases', 'Releases'], ['campaigns', 'Campaigns'], ['sales', 'Sales'], ['payouts', 'Payouts']] as const
+  const tabs = [['overview', 'Overview'], ['releases', 'Releases'], ['campaigns', 'Campaigns'], ['sales', 'Sales'], ['payouts', 'Payouts'], ['page', 'Public page']] as const
 
   return <main className="page-main artist-dashboard">
     <div className="dashboard-top"><div><span className="section-kicker">CREATOR STUDIO</span><h1>Hi, <em>{profile.display_name}.</em></h1><p>Publish releases, run campaigns and get paid directly.</p></div>
@@ -263,5 +281,13 @@ export function ArtistStudio({ profile, setToast, onSignOut }: { profile: Profil
           <label className="field-label" htmlFor="p-num">Account number</label><input id="p-num" className="field" inputMode="numeric" maxLength={10} value={bank.number} onChange={e => setBank({ ...bank, number: e.target.value.replace(/\D/g, '') })} autoComplete="off" />
           <span className="field-help">Your account number goes straight to Paystack. We only keep the last 4 digits.</span>
           <button className="btn btn-dark" disabled={busy} onClick={savePayout}>Connect account</button></>}</div>}
+
+    {tab === 'page' && <div className="dashboard-panel"><div className="panel-head"><div><h2>Your public page</h2><p>This is what fans see when they open your link.</p></div></div>
+      <label className="field-label" htmlFor="pg-name">Name shown to fans</label><input id="pg-name" className="field" maxLength={40} value={pf.name} onChange={e => setPf({ ...pf, name: e.target.value })} />
+      <label className="field-label" htmlFor="pg-bio">About you <span className="optional">{pf.bio.length}/300</span></label><textarea id="pg-bio" className="field textarea" rows={4} maxLength={300} value={pf.bio} onChange={e => setPf({ ...pf, bio: e.target.value })} placeholder="Who you are, where you are from, what you make." />
+      <button className="btn btn-dark" disabled={busy} onClick={savePage}>Save</button>
+      <label className="field-label" htmlFor="pg-link">Your link</label>
+      <div className="link-row"><input id="pg-link" className="field" readOnly value={pageLink} onFocus={e => e.currentTarget.select()} /><button className="btn btn-outline" onClick={copyPageLink}>Copy</button><a className="btn btn-outline" href={pageLink}>Open</a></div>
+      <span className="field-help">Your page uses the cover of your latest release as its picture. Profile photo upload comes later.</span></div>}
   </main>
 }
