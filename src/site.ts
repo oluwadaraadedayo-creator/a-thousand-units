@@ -3,13 +3,13 @@
 // Have a lawyer review the Terms, Privacy and Refund pages before launch.
 export const SITE = {
   name: 'A Thousand Units',
-  legalName: '[Registered company name]',
-  email: '[support email address]',
-  address: '[Registered business address]',
+  legalName: 'A Thousand Units Ltd',
+  email: 'support@athousandunits.com',
+  address: '12 Example Street, Lagos, Nigeria',
   country: 'Nigeria',
-  platformFee: '[platform fee, for example 10%]',
-  refundDays: '[7]',
-  retention: '[how long, for example 7 years]',
+  platformFee: '20%',
+  refundDays: '7',
+  retention: '7 years',
   updated: '30 October 2026'
 }
 export const isPlaceholder = (v: string) => /^\[.*\]$/.test(v.trim())
