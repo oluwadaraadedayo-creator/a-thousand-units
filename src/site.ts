@@ -4,7 +4,7 @@
 export const SITE = {
   name: 'A Thousand Units',
   legalName: 'A Thousand Units Ltd',
-  email: 'support@athousandunits.com',
+  email: 'hello@athousandunits.com',
   address: '12 Example Street, Lagos, Nigeria',
   country: 'Nigeria',
   platformFee: '20%',
