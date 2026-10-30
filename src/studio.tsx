@@ -4,6 +4,7 @@ import { supabase } from './supabase'
 import { apiCall, formatBytes, MIN_PWYW_NAIRA, PRODUCT_SELECT, TYPE_VALUE, mapProduct, money } from './lib'
 import type { CampaignProgress, Category, Profile, Release } from './lib'
 import { CampaignCard } from './campaign'
+import { prepareCover } from './image'
 import { UPLOADER_TERMS, UPLOADER_TERMS_VERSION, rightsStatement } from './terms'
 
 const STUDIO_SELECT = `${PRODUCT_SELECT},rights_confirmed_at`
@@ -32,6 +33,7 @@ export function ArtistStudio({ profile, setToast, onSignOut }: { profile: Profil
   const [d, setD] = useState<Draft>(blank)
   const [files, setFiles] = useState<FileRow[]>([])
   const [uploading, setUploading] = useState('')
+  const [coverBusy, setCoverBusy] = useState(false)
   const [termsTick, setTermsTick] = useState(false)
   const [cForm, setCForm] = useState({ productId: '', title: '', goal: '100' })
   const [banks, setBanks] = useState<{ name: string; code: string }[]>([])
@@ -106,7 +108,7 @@ export function ArtistStudio({ profile, setToast, onSignOut }: { profile: Profil
       if (!d.rights && !d.rightsAt) return setToast('Confirm the rights statement to publish.')
     }
     const row: Record<string, unknown> = {
-      title, description: d.description.trim(), product_type: TYPE_VALUE[d.type] || 'album', category: d.category, artwork_path: d.image.trim() || null,
+      title, description: d.description.trim(), product_type: TYPE_VALUE[d.type] || 'album', category: d.category,
       price_minor: price * 100, pricing_mode: d.mode, min_price_minor: d.mode === 'pay_what_you_want' ? min * 100 : null, tracklist: tracks,
       status: publish ? 'published' : d.status === 'published' ? 'draft' : d.status
     }
@@ -123,6 +125,22 @@ export function ArtistStudio({ profile, setToast, onSignOut }: { profile: Profil
       if (error) return setToast(error.message)
       setToast('Draft saved. Now add your audio files below.'); setD({ ...d, id: (data as any).id, rightsAt: d.rights, status: 'draft' }); load()
     }
+  }
+
+  const uploadCover = async (file: File | undefined) => {
+    if (!supabase || !file || !d.id || coverBusy) return
+    setCoverBusy(true)
+    try {
+      const blob = await prepareCover(file)
+      const path = `${profile.id}/${d.id}/${crypto.randomUUID()}.jpg`
+      const up = await supabase.storage.from('artwork').upload(path, blob, { contentType: 'image/jpeg', upsert: false })
+      if (up.error) throw new Error(up.error.message)
+      const r = await apiCall<{ url?: string; error?: string }>('/api/register-artwork', { auth: true, body: { productId: d.id, path } })
+      if (!r.ok || !r.data.url) throw new Error(r.data?.error || 'Could not save the cover.')
+      const url = r.data.url, id = d.id
+      setD(prev => prev.id === id ? { ...prev, image: url } : prev)
+      setToast('Cover updated.'); load()
+    } catch (e: any) { setToast(e?.message || 'Could not upload the cover.') } finally { setCoverBusy(false) }
   }
 
   const upload = async (list: FileList | null) => {
@@ -198,7 +216,9 @@ export function ArtistStudio({ profile, setToast, onSignOut }: { profile: Profil
         <label className="check-line"><input type="checkbox" checked={termsTick} onChange={e => setTermsTick(e.target.checked)} /> I have read and accept these terms.</label>
         <button className="btn btn-dark" disabled={busy} onClick={acceptTerms}>Accept terms</button></div>}
       <div className="release-form"><div className="cover-upload"><div className="cover-preview">{d.image ? <img src={d.image} alt="Cover preview" /> : <div><span>Cover artwork</span></div>}</div>
-        <label className="field-label" htmlFor="s-img">Artwork image URL</label><input id="s-img" className="field" value={d.image} onChange={e => setD({ ...d, image: e.target.value })} placeholder="https://..." /><span className="field-help">Use a public image link for now. Image upload comes next.</span></div>
+        <label className="btn btn-outline" style={{ cursor: canUpload && !coverBusy ? 'pointer' : 'not-allowed', opacity: canUpload ? 1 : .5 }}><Upload size={16} /> {coverBusy ? 'Uploading...' : d.image ? 'Replace cover' : 'Upload cover'}
+          <input id="s-img" type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={!canUpload || coverBusy} onChange={e => { uploadCover(e.target.files?.[0]); e.target.value = '' }} /></label>
+        <span className="field-help">{!d.id ? 'Save a draft first, then upload your cover. ' : !canUpload ? 'Uploads need a verified account and accepted terms. ' : ''}JPG, PNG or WebP, at least 500 x 500. We crop to a square from the centre and remove photo location data.</span></div>
         <div className="form-fields">
           <label className="field-label" htmlFor="s-title">Release title *</label><input id="s-title" className="field" maxLength={80} value={d.title} onChange={e => setD({ ...d, title: e.target.value })} />
           <label className="field-label" htmlFor="s-cat">Category</label>

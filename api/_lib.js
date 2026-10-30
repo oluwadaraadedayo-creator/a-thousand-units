@@ -141,8 +141,8 @@ export function safeFilename(position, title, ext) {
 }
 
 // Reads just the first bytes of a stored file through a short signed link, and its total size.
-export async function peekFile(db, path) {
-  const { data, error } = await db.storage.from(AUDIO_BUCKET).createSignedUrl(path, 60)
+export async function peekFile(db, path, bucket = AUDIO_BUCKET) {
+  const { data, error } = await db.storage.from(bucket).createSignedUrl(path, 60)
   if (error || !data?.signedUrl) return null
   const res = await fetch(data.signedUrl, { headers: { Range: 'bytes=0-15' } })
   if (!res.ok && res.status !== 206) return null
@@ -162,4 +162,23 @@ export function ipHash(req) {
   const ip = String(req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown').split(',')[0].trim()
   const salt = process.env.IP_HASH_SALT || process.env.SUPABASE_SERVICE_ROLE_KEY || 'atu'
   return createHmac('sha256', salt).update(ip).digest('hex').slice(0, 32)
+}
+
+// ---------------------------------------------------------------------------
+// Artwork (cover image) helpers
+// ---------------------------------------------------------------------------
+export const IMAGE_BUCKET = 'artwork'
+export const MAX_IMAGE_BYTES = 5242880       // 5 MB (matches the storage bucket limit)
+export const ARTWORK_PATH = (userId, productId) => new RegExp(`^${userId}/${productId}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(jpg|png|webp)$`, 'i')
+
+// Decides what an image file really is from its first bytes. Only JPEG, PNG and WebP are accepted:
+// no SVG (it can carry scripts) and no GIF.
+export function sniffImage(bytes) {
+  if (!bytes || bytes.length < 12) return null
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return { kind: 'jpg', mime: 'image/jpeg' }
+  const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+  if (png.every((b, i) => bytes[i] === b)) return { kind: 'png', mime: 'image/png' }
+  const s = (a, b) => String.fromCharCode(...Array.from(bytes.slice(a, b)))
+  if (s(0, 4) === 'RIFF' && s(8, 12) === 'WEBP') return { kind: 'webp', mime: 'image/webp' }
+  return null
 }
