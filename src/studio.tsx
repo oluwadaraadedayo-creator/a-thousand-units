@@ -1,26 +1,38 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowUpRight, Award, Disc3, Plus, ShieldCheck, ShoppingBag, Wallet } from 'lucide-react'
+import { ArrowUpRight, Award, Disc3, Music2, Plus, ShieldCheck, ShoppingBag, Trash2, Upload, Users, Wallet } from 'lucide-react'
 import { supabase } from './supabase'
-import { apiCall, MIN_PWYW_NAIRA, PRODUCT_SELECT, TYPE_VALUE, mapProduct, money } from './lib'
-import type { CampaignProgress, Profile, Release } from './lib'
+import { apiCall, formatBytes, MIN_PWYW_NAIRA, PRODUCT_SELECT, TYPE_VALUE, mapProduct, money } from './lib'
+import type { CampaignProgress, Category, Profile, Release } from './lib'
 import { CampaignCard } from './campaign'
+import { UPLOADER_TERMS, UPLOADER_TERMS_VERSION, rightsStatement } from './terms'
 
-type Draft = { id?: string; title: string; type: string; mode: 'fixed' | 'pay_what_you_want'; price: string; min: string; description: string; tracks: string; image: string; status: string }
-const blank: Draft = { title: '', type: 'Album', mode: 'fixed', price: '3500', min: '1000', description: '', tracks: '', image: '', status: 'draft' }
+const STUDIO_SELECT = `${PRODUCT_SELECT},rights_confirmed_at`
+const AUDIO_EXT: Record<string, string> = { mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg' }
+const MAX_BYTES = 50 * 1024 * 1024
+
+type Draft = { id?: string; title: string; type: string; category: string; mode: 'fixed' | 'pay_what_you_want'; price: string; min: string; description: string; tracks: string; image: string; status: string; rights: boolean; rightsAt: boolean }
+const blank: Draft = { title: '', type: 'Album', category: 'music_artist', mode: 'fixed', price: '3500', min: '1000', description: '', tracks: '', image: '', status: 'draft', rights: false, rightsAt: false }
 type Order = { id: string; amount_minor: number; platform_fee_minor: number; paid_at: string; product: { title: string } | null }
 type Payout = { account_name: string; account_last4: string; bank_name: string | null } | null
+type FileRow = { id: string; title: string; position: number; size_bytes: number }
 
 function Metric({ icon, label, value, note }: { icon: React.ReactNode; label: string; value: string; note: string }) {
   return <div className="metric-card"><div className="metric-top"><span className="metric-icon">{icon}</span></div><span className="metric-label">{label}</span><strong>{value}</strong><span className="metric-foot">{note}</span></div>
 }
 
-export function ArtistStudio({ profile, setToast, openRelease }: { profile: Profile; setToast: (m: string) => void; openRelease: (r: Release) => void }) {
+export function ArtistStudio({ profile, setToast }: { profile: Profile; setToast: (m: string) => void; openRelease?: (r: Release) => void }) {
   const [tab, setTab] = useState<'overview' | 'releases' | 'campaigns' | 'sales' | 'payouts'>('overview')
-  const [products, setProducts] = useState<(Release & { status: string; mode: string; raw: any })[]>([])
+  const [products, setProducts] = useState<(Release & { status: string; raw: any })[]>([])
   const [campaigns, setCampaigns] = useState<CampaignProgress[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [payout, setPayout] = useState<Payout>(null)
+  const [cats, setCats] = useState<Category[]>([])
+  const [standing, setStanding] = useState({ accepted: false, suspended: false, strikes: 0 })
+  const [followers, setFollowers] = useState(0)
   const [d, setD] = useState<Draft>(blank)
+  const [files, setFiles] = useState<FileRow[]>([])
+  const [uploading, setUploading] = useState('')
+  const [termsTick, setTermsTick] = useState(false)
   const [cForm, setCForm] = useState({ productId: '', title: '', goal: '100' })
   const [banks, setBanks] = useState<{ name: string; code: string }[]>([])
   const [bank, setBank] = useState({ code: '', number: '' })
@@ -28,18 +40,34 @@ export function ArtistStudio({ profile, setToast, openRelease }: { profile: Prof
 
   const load = useCallback(async () => {
     if (!supabase) return
-    const [p, c, o, pay] = await Promise.all([
-      supabase.from('products').select(PRODUCT_SELECT).eq('creator_id', profile.id).order('created_at', { ascending: false }),
+    const [p, c, o, pay, k, comp, fc] = await Promise.all([
+      supabase.from('products').select(STUDIO_SELECT).eq('creator_id', profile.id).order('created_at', { ascending: false }),
       supabase.from('campaigns').select('id').eq('creator_id', profile.id).order('created_at', { ascending: false }),
       supabase.from('orders').select('id,amount_minor,platform_fee_minor,paid_at,product:products(title)').eq('creator_id', profile.id).eq('status', 'paid').order('paid_at', { ascending: false }).limit(100),
-      supabase.from('artist_payouts').select('account_name,account_last4,bank_name').eq('profile_id', profile.id).maybeSingle()
+      supabase.from('artist_payouts').select('account_name,account_last4,bank_name').eq('profile_id', profile.id).maybeSingle(),
+      supabase.from('categories').select('*').order('sort'),
+      supabase.from('creator_compliance').select('uploader_terms_accepted_at,suspended_at,strikes').eq('profile_id', profile.id).maybeSingle(),
+      supabase.rpc('follower_counts', { p_ids: [profile.id] })
     ])
-    setProducts((p.data || []).map((x: any) => ({ ...mapProduct(x), status: x.status, mode: x.pricing_mode, raw: x })))
-    setOrders((o.data as any) || []); setPayout((pay.data as any) || null)
+    setProducts((p.data || []).map((x: any) => ({ ...mapProduct(x), status: x.status, raw: x })))
+    setOrders((o.data as any) || []); setPayout((pay.data as any) || null); setCats((k.data as any) || [])
+    const cd: any = comp.data
+    setStanding({ accepted: !!cd?.uploader_terms_accepted_at, suspended: !!cd?.suspended_at, strikes: cd?.strikes || 0 })
+    setFollowers(Array.isArray(fc.data) && fc.data[0] ? fc.data[0].followers : 0)
     const progress = await Promise.all((c.data || []).map(async (row: any) => (await supabase!.rpc('campaign_progress', { p_campaign: row.id })).data as CampaignProgress))
     setCampaigns(progress.filter(Boolean))
   }, [profile.id])
   useEffect(() => { load() }, [load])
+
+  const loadFiles = useCallback(async (productId: string) => {
+    if (!supabase) return
+    const { data } = await supabase.from('product_files').select('id,title,position,size_bytes').eq('product_id', productId).eq('status', 'active').order('position')
+    const rows = (data as FileRow[]) || []
+    setFiles(rows)
+    setD(prev => prev.id === productId && !prev.tracks.trim() && rows.length ? { ...prev, tracks: rows.map(r => r.title).join('\n') } : prev)
+  }, [])
+  useEffect(() => { if (d.id) loadFiles(d.id); else setFiles([]) }, [d.id, loadFiles])
+
   useEffect(() => {
     if (tab !== 'payouts' || payout || banks.length) return
     apiCall<{ banks: { name: string; code: string }[] }>('/api/banks', { method: 'GET' }).then(r => { if (r.ok && Array.isArray(r.data.banks)) setBanks(r.data.banks); else setToast('Could not load banks. Try again shortly.') })
@@ -47,8 +75,18 @@ export function ArtistStudio({ profile, setToast, openRelease }: { profile: Prof
 
   const edit = (p: (typeof products)[number]) => {
     const r = p.raw
-    setD({ id: r.id, title: r.title, type: p.type, mode: r.pricing_mode, price: String(r.price_minor / 100), min: String((r.min_price_minor ?? 100000) / 100), description: r.description || '', tracks: (r.tracklist || []).join('\n'), image: r.artwork_path || '', status: r.status })
+    setD({ id: r.id, title: r.title, type: p.type, category: r.category || 'music_artist', mode: r.pricing_mode, price: String(r.price_minor / 100), min: String((r.min_price_minor ?? 100000) / 100), description: r.description || '', tracks: (r.tracklist || []).join('\n'), image: r.artwork_path || '', status: r.status, rights: !!r.rights_confirmed_at, rightsAt: !!r.rights_confirmed_at })
     setTab('releases'); window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const acceptTerms = async () => {
+    if (!supabase || busy) return
+    if (!termsTick) return setToast('Tick the box to accept the terms.')
+    setBusy(true)
+    const { error } = await supabase.rpc('accept_uploader_terms', { p_version: UPLOADER_TERMS_VERSION })
+    setBusy(false)
+    if (error) return setToast(error.message)
+    setToast('Terms accepted.'); load()
   }
 
   const save = async (publish: boolean) => {
@@ -61,18 +99,52 @@ export function ArtistStudio({ profile, setToast, openRelease }: { profile: Prof
       if (!Number.isFinite(min) || min < MIN_PWYW_NAIRA) return setToast('The minimum must be at least ₦1,000.')
       if (price < min) return setToast('Your suggested price must be at or above your minimum.')
     }
-    if (publish && !d.image.trim()) return setToast('Add artwork to publish.')
-    if (publish && !tracks.length) return setToast('Add at least one track to publish.')
-    const row = {
-      title, description: d.description.trim(), product_type: TYPE_VALUE[d.type] || 'album', artwork_path: d.image.trim() || null,
+    if (publish) {
+      if (!d.image.trim()) return setToast('Add artwork to publish.')
+      if (!standing.accepted) return setToast('Accept the uploader terms first.')
+      if (!d.id || files.length === 0) return setToast('Save a draft and add at least one audio file before publishing.')
+      if (!d.rights && !d.rightsAt) return setToast('Confirm the rights statement to publish.')
+    }
+    const row: Record<string, unknown> = {
+      title, description: d.description.trim(), product_type: TYPE_VALUE[d.type] || 'album', category: d.category, artwork_path: d.image.trim() || null,
       price_minor: price * 100, pricing_mode: d.mode, min_price_minor: d.mode === 'pay_what_you_want' ? min * 100 : null, tracklist: tracks,
       status: publish ? 'published' : d.status === 'published' ? 'draft' : d.status
     }
+    if (d.rights && !d.rightsAt) row.rights_confirmed_at = new Date().toISOString()
     setBusy(true)
-    const { error } = d.id ? await supabase.from('products').update(row).eq('id', d.id) : await supabase.from('products').insert({ ...row, creator_id: profile.id })
-    setBusy(false)
-    if (error) return setToast(error.message)
-    setToast(publish ? 'Release published.' : 'Draft saved.'); setD(blank); load()
+    if (d.id) {
+      const { error } = await supabase.from('products').update(row).eq('id', d.id)
+      setBusy(false)
+      if (error) return setToast(error.message)
+      setToast(publish ? 'Release published.' : 'Saved.'); if (publish) setD(blank); else setD({ ...d, rightsAt: d.rightsAt || d.rights, status: row.status as string }); load()
+    } else {
+      const { data, error } = await supabase.from('products').insert({ ...row, creator_id: profile.id }).select('id').single()
+      setBusy(false)
+      if (error) return setToast(error.message)
+      setToast('Draft saved. Now add your audio files below.'); setD({ ...d, id: (data as any).id, rightsAt: d.rights, status: 'draft' }); load()
+    }
+  }
+
+  const upload = async (list: FileList | null) => {
+    if (!supabase || !list || !d.id) return
+    if (!standing.accepted) return setToast('Accept the uploader terms first.')
+    for (const file of Array.from(list)) {
+      const ext = (file.name.split('.').pop() || '').toLowerCase()
+      if (!AUDIO_EXT[ext]) { setToast(`${file.name}: use MP3, WAV, FLAC, M4A, AAC or OGG.`); continue }
+      if (file.size > MAX_BYTES) { setToast(`${file.name} is over 50 MB.`); continue }
+      setUploading(file.name)
+      const path = `${profile.id}/${d.id}/${crypto.randomUUID()}.${ext}`
+      const up = await supabase.storage.from('audio').upload(path, file, { contentType: AUDIO_EXT[ext], upsert: false })
+      if (up.error) { setToast(up.error.message); continue }
+      const r = await apiCall<any>('/api/register-audio', { auth: true, body: { productId: d.id, path, title: file.name.replace(/\.[^.]+$/, '').slice(0, 120) } })
+      if (!r.ok) setToast(r.data?.error || 'Could not add that file.')
+    }
+    setUploading(''); loadFiles(d.id)
+  }
+  const removeFile = async (id: string) => {
+    const r = await apiCall<any>('/api/remove-audio', { auth: true, body: { fileId: id } })
+    if (!r.ok) return setToast(r.data?.error || 'Could not remove the file.')
+    if (d.id) loadFiles(d.id)
   }
 
   const startCampaign = async () => {
@@ -102,26 +174,37 @@ export function ArtistStudio({ profile, setToast, openRelease }: { profile: Prof
   const published = products.filter(p => p.status === 'published')
   const gross = orders.reduce((s, o) => s + o.amount_minor, 0); const fees = orders.reduce((s, o) => s + (o.platform_fee_minor || 0), 0)
   const plaqueCount = campaigns.reduce((s, c) => s + c.plaques.length, 0)
+  const canUpload = !!d.id && standing.accepted && profile.verified_artist && !standing.suspended
   const tabs = [['overview', 'Overview'], ['releases', 'Releases'], ['campaigns', 'Campaigns'], ['sales', 'Sales'], ['payouts', 'Payouts']] as const
 
   return <main className="page-main artist-dashboard">
     <div className="dashboard-top"><div><span className="section-kicker">CREATOR STUDIO</span><h1>Hi, <em>{profile.display_name}.</em></h1><p>Publish releases, run campaigns and get paid directly.</p></div>
       <button className="btn btn-dark" onClick={() => { setD(blank); setTab('releases') }}><Plus size={18} /> New release</button></div>
-    {!profile.verified_artist && <div className="inline-alert"><ShieldCheck size={18} /><div><b>Awaiting verification</b><p>You can save drafts now. Publishing, campaigns and payouts unlock once the A Thousand Units team verifies your artist account.</p></div></div>}
+    {!profile.verified_artist && <div className="inline-alert"><ShieldCheck size={18} /><div><b>Awaiting verification</b><p>You can save drafts now. Uploading audio, publishing, campaigns and payouts unlock once the A Thousand Units team verifies your artist account.</p></div></div>}
+    {standing.suspended && <div className="inline-alert"><ShieldCheck size={18} /><div><b>Your account is suspended from publishing</b><p>This follows repeated copyright removals. Contact support to discuss it.</p></div></div>}
+    {!standing.suspended && standing.strikes > 0 && <div className="inline-alert"><ShieldCheck size={18} /><div><b>{standing.strikes} removal{standing.strikes > 1 ? 's' : ''} on your account</b><p>Three removals lead to suspension. Only upload audio you own or have permission to sell.</p></div></div>}
     <div className="dashboard-tabs">{tabs.map(([k, label]) => <button key={k} className={tab === k ? 'selected' : ''} onClick={() => setTab(k)}>{label}</button>)}</div>
 
     {tab === 'overview' && <>
-      <div className="metric-grid"><Metric icon={<Disc3 />} label="Published releases" value={String(published.length)} note={`${products.length - published.length} drafts`} />
-        <Metric icon={<ShoppingBag />} label="Paid orders" value={String(orders.length)} note="Verified payments only" />
-        <Metric icon={<Wallet />} label="Gross sales" value={money(gross / 100)} note={`Your share after platform fee: ${money((gross - fees) / 100)}`} /></div>
-      <div className="metric-grid"><Metric icon={<Award />} label="Plaques earned" value={String(plaqueCount)} note={`${campaigns.length} campaigns`} /></div>
+      <div className="metric-grid"><Metric icon={<Disc3 />} label="Published releases" value={String(published.length)} note={`${products.length - published.length} drafts or archived`} />
+        <Metric icon={<Users />} label="Followers" value={String(followers)} note="Fans following you" />
+        <Metric icon={<ShoppingBag />} label="Paid orders" value={String(orders.length)} note="Verified payments only" /></div>
+      <div className="metric-grid"><Metric icon={<Wallet />} label="Gross sales" value={money(gross / 100)} note={`Your share after platform fee: ${money((gross - fees) / 100)}`} />
+        <Metric icon={<Award />} label="Plaques earned" value={String(plaqueCount)} note={`${campaigns.length} campaigns`} /></div>
       <div className="dashboard-note"><Wallet /><p><b>About your share.</b> Paystack processing fees are not shown here, and the final settlement to your bank follows Paystack's schedule.</p></div></>}
 
     {tab === 'releases' && <div className="release-workspace"><div className="dashboard-panel"><div className="panel-head"><div><h2>{d.id ? 'Edit release' : 'Create a release'}</h2><p>Fields marked * are required.</p></div>{d.id && <button className="text-link" onClick={() => setD(blank)}>Cancel edit</button>}</div>
+      {!standing.accepted && profile.verified_artist && <div className="terms-box"><b>Uploader terms</b><ol>{UPLOADER_TERMS.map(t => <li key={t}>{t}</li>)}</ol>
+        <label className="check-line"><input type="checkbox" checked={termsTick} onChange={e => setTermsTick(e.target.checked)} /> I have read and accept these terms.</label>
+        <button className="btn btn-dark" disabled={busy} onClick={acceptTerms}>Accept terms</button></div>}
       <div className="release-form"><div className="cover-upload"><div className="cover-preview">{d.image ? <img src={d.image} alt="Cover preview" /> : <div><span>Cover artwork</span></div>}</div>
-        <label className="field-label" htmlFor="s-img">Artwork image URL</label><input id="s-img" className="field" value={d.image} onChange={e => setD({ ...d, image: e.target.value })} placeholder="https://..." /><span className="field-help">Use a public image link for now. File upload comes with media storage.</span></div>
+        <label className="field-label" htmlFor="s-img">Artwork image URL</label><input id="s-img" className="field" value={d.image} onChange={e => setD({ ...d, image: e.target.value })} placeholder="https://..." /><span className="field-help">Use a public image link for now. Image upload comes next.</span></div>
         <div className="form-fields">
           <label className="field-label" htmlFor="s-title">Release title *</label><input id="s-title" className="field" maxLength={80} value={d.title} onChange={e => setD({ ...d, title: e.target.value })} />
+          <label className="field-label" htmlFor="s-cat">Category</label>
+          <select id="s-cat" className="field" value={d.category} onChange={e => setD({ ...d, category: e.target.value })}>
+            {cats.length ? (['music', 'fashion', 'others'] as const).map(g => { const items = cats.filter(c => c.group_name === g); return items.length ? <optgroup key={g} label={g[0].toUpperCase() + g.slice(1)}>{items.map(c => <option key={c.slug} value={c.slug} disabled={!c.enabled}>{c.label}{c.enabled ? '' : ' (coming soon)'}</option>)}</optgroup> : null }) : <option value="music_artist">Artist</option>}
+          </select>
           <label className="field-label" htmlFor="s-type">Release type</label><select id="s-type" className="field" value={d.type} onChange={e => setD({ ...d, type: e.target.value })}>{Object.keys(TYPE_VALUE).map(t => <option key={t}>{t}</option>)}</select>
           <label className="field-label">Pricing</label>
           <div className="filters" style={{ marginBottom: 12 }}><button className={d.mode === 'fixed' ? 'selected' : ''} onClick={() => setD({ ...d, mode: 'fixed' })}>Fixed price</button><button className={d.mode === 'pay_what_you_want' ? 'selected' : ''} onClick={() => setD({ ...d, mode: 'pay_what_you_want' })}>Pay what you want</button></div>
@@ -129,10 +212,17 @@ export function ArtistStudio({ profile, setToast, openRelease }: { profile: Prof
             {d.mode === 'pay_what_you_want' && <div><label className="field-label" htmlFor="s-min">Minimum (₦) *</label><input id="s-min" className="field" type="number" min={MIN_PWYW_NAIRA} value={d.min} onChange={e => setD({ ...d, min: e.target.value })} /></div>}</div>
           {d.mode === 'pay_what_you_want' && <span className="field-help">Fans choose what to pay, never below your minimum. The lowest minimum allowed is ₦1,000.</span>}
           <label className="field-label" htmlFor="s-desc">Description</label><textarea id="s-desc" className="field textarea" rows={3} value={d.description} onChange={e => setD({ ...d, description: e.target.value })} />
-          <label className="field-label" htmlFor="s-tracks">Tracklist <span className="optional">one track per line</span></label><textarea id="s-tracks" className="field textarea" rows={5} value={d.tracks} onChange={e => setD({ ...d, tracks: e.target.value })} />
+          <label className="field-label" htmlFor="s-tracks">Tracklist shown to fans <span className="optional">one track per line</span></label><textarea id="s-tracks" className="field textarea" rows={4} value={d.tracks} onChange={e => setD({ ...d, tracks: e.target.value })} />
+          {d.id ? <div className="audio-files"><label className="field-label" style={{ marginTop: 0 }}>Audio files *</label>
+            {files.length ? files.map(f => <div className="audio-row" key={f.id}><Music2 size={15} /><b>{f.title}</b><span>{formatBytes(f.size_bytes)}</span><button className="icon-btn" aria-label={`Remove ${f.title}`} onClick={() => removeFile(f.id)}><Trash2 size={15} /></button></div>) : <p className="field-help">No audio yet.</p>}
+            <label className="btn btn-outline" style={{ cursor: canUpload && !uploading ? 'pointer' : 'not-allowed', opacity: canUpload ? 1 : .5 }}><Upload size={16} /> {uploading ? `Uploading ${uploading}...` : 'Add audio files'}
+              <input type="file" accept=".mp3,.wav,.flac,.m4a,.aac,.ogg,audio/*" multiple hidden disabled={!canUpload || !!uploading} onChange={e => { upload(e.target.files); e.target.value = '' }} /></label>
+            <span className="field-help">MP3, WAV, FLAC, M4A, AAC or OGG, up to 50 MB each. Files are private and only buyers can download them.{!canUpload ? ' Uploads need a verified account and accepted terms.' : ''}</span></div>
+            : <p className="field-help">Save a draft first, then you can add your audio files.</p>}
+          <label className="check-line"><input type="checkbox" checked={d.rights} disabled={d.rightsAt} onChange={e => setD({ ...d, rights: e.target.checked })} /> {rightsStatement(d.category)}</label>
           <div className="form-actions"><button className="btn btn-outline" disabled={busy} onClick={() => save(false)}>Save draft</button><button className="btn btn-dark" disabled={busy} onClick={() => save(true)}>{d.status === 'published' ? 'Save changes' : 'Publish release'} <ArrowUpRight size={17} /></button></div>
         </div></div></div>
-      <div className="dashboard-panel"><div className="panel-head"><div><h2>Your releases</h2><p>{products.length} total</p></div></div><div className="mini-release-list">{products.length ? products.map(p => <div className="mini-release" key={p.id}>{p.image ? <img src={p.image} alt="" /> : <span className="metric-icon"><Disc3 /></span>}<div className="mini-release-name"><b>{p.title}</b><span>{p.type} · {p.pricingMode === 'pay_what_you_want' ? `from ${money(p.minPrice || 0)}` : money(p.price)}</span></div><span className={`status-pill ${p.status !== 'published' ? 'draft-pill' : ''}`}><span />{p.status === 'published' ? 'Published' : p.status}</span><button className="icon-btn" onClick={() => edit(p)} aria-label={`Edit ${p.title}`}><ArrowUpRight size={17} /></button></div>) : <p className="field-help">No releases yet.</p>}</div></div></div>}
+      <div className="dashboard-panel"><div className="panel-head"><div><h2>Your releases</h2><p>{products.length} total</p></div></div><div className="mini-release-list">{products.length ? products.map(p => <div className="mini-release" key={p.id}>{p.image ? <img src={p.image} alt="" /> : <span className="metric-icon"><Disc3 /></span>}<div className="mini-release-name"><b>{p.title}</b><span>{p.categoryLabel ? `${p.categoryLabel} · ` : ''}{p.type} · {p.pricingMode === 'pay_what_you_want' ? `from ${money(p.minPrice || 0)}` : money(p.price)}</span></div><span className={`status-pill ${p.status !== 'published' ? 'draft-pill' : ''}`}><span />{p.status === 'published' ? 'Published' : p.status === 'removed' ? 'Removed' : p.status}</span>{p.status !== 'removed' && <button className="icon-btn" onClick={() => edit(p)} aria-label={`Edit ${p.title}`}><ArrowUpRight size={17} /></button>}</div>) : <p className="field-help">No releases yet.</p>}</div></div></div>}
 
     {tab === 'campaigns' && <>
       <div className="dashboard-panel"><div className="panel-head"><div><h2>Start a campaign</h2><p>Set a goal in units. A unit is one paying fan. Milestones earn plaques after a 7 day confirmation period. Your own purchases and refunded orders never count.</p></div></div>

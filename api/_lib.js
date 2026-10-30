@@ -97,3 +97,58 @@ export async function confirmPayment(db, secret, reference) {
   if (!updated?.length) return { code: 200, verified: true, orderId: order.id, productId: order.product_id }
   return { code: 200, verified: true, orderId: order.id, productId: order.product_id }
 }
+
+// ---------------------------------------------------------------------------
+// Audio helpers
+// ---------------------------------------------------------------------------
+export const AUDIO_BUCKET = 'audio'
+export const MAX_AUDIO_BYTES = 52428800      // 50 MB per file (matches the storage bucket limit)
+export const MAX_FILES_PER_RELEASE = 40
+export const DOWNLOAD_LINK_SECONDS = 600     // signed links expire after 10 minutes
+export const DOWNLOADS_PER_HOUR = 20         // per buyer per release, to discourage link sharing
+export const AUDIO_PATH = (userId, productId) => new RegExp(`^${userId}/${productId}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(mp3|wav|flac|m4a|aac|ogg)$`, 'i')
+
+const KIND_MIME = { mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', mp4: 'audio/mp4', ogg: 'audio/ogg' }
+const KIND_EXT = { mp3: ['mp3', 'aac'], wav: ['wav'], flac: ['flac'], mp4: ['m4a', 'aac'], ogg: ['ogg'] }
+
+// Looks at the first bytes of a file to decide what it really is, whatever it is named.
+export function sniffAudio(bytes) {
+  if (!bytes || bytes.length < 12) return null
+  const s = (a, b) => String.fromCharCode(...Array.from(bytes.slice(a, b)))
+  if (s(0, 3) === 'ID3' || (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0)) return { kind: 'mp3', mime: KIND_MIME.mp3 }
+  if (s(0, 4) === 'RIFF' && s(8, 12) === 'WAVE') return { kind: 'wav', mime: KIND_MIME.wav }
+  if (s(0, 4) === 'fLaC') return { kind: 'flac', mime: KIND_MIME.flac }
+  if (s(4, 8) === 'ftyp') return { kind: 'mp4', mime: KIND_MIME.mp4 }
+  if (s(0, 4) === 'OggS') return { kind: 'ogg', mime: KIND_MIME.ogg }
+  return null
+}
+export const extMatchesKind = (kind, ext) => (KIND_EXT[kind] || []).includes(String(ext).toLowerCase())
+
+export function safeFilename(position, title, ext) {
+  const clean = String(title || 'track').replace(/[^\p{L}\p{N} ._()-]/gu, '').replace(/\.{2,}/g, '').replace(/\s+/g, ' ').replace(/^[.\s]+/, '').trim().slice(0, 80) || 'track'
+  return `${String(Number(position) + 1).padStart(2, '0')} - ${clean}.${ext}`
+}
+
+// Reads just the first bytes of a stored file through a short signed link, and its total size.
+export async function peekFile(db, path) {
+  const { data, error } = await db.storage.from(AUDIO_BUCKET).createSignedUrl(path, 60)
+  if (error || !data?.signedUrl) return null
+  const res = await fetch(data.signedUrl, { headers: { Range: 'bytes=0-15' } })
+  if (!res.ok && res.status !== 206) return null
+  let head
+  if (res.body?.getReader) {
+    const reader = res.body.getReader(); const parts = []; let n = 0
+    while (n < 16) { const { done, value } = await reader.read(); if (done) break; parts.push(value); n += value.length }
+    await reader.cancel().catch(() => {}); head = Buffer.concat(parts.map((p) => Buffer.from(p)))
+  } else {
+    head = Buffer.from(await res.arrayBuffer()).subarray(0, 16)
+  }
+  const range = res.headers.get('content-range'); const total = range ? Number(range.split('/')[1]) : Number(res.headers.get('content-length'))
+  return { head, size: Number.isFinite(total) ? total : 0 }
+}
+
+export function ipHash(req) {
+  const ip = String(req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown').split(',')[0].trim()
+  const salt = process.env.IP_HASH_SALT || process.env.SUPABASE_SERVICE_ROLE_KEY || 'atu'
+  return createHmac('sha256', salt).update(ip).digest('hex').slice(0, 32)
+}
