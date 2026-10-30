@@ -82,3 +82,13 @@
 .artist-card{cursor:default}
 .artist-photo{display:block;width:100%;padding:0;border:0;cursor:pointer}
 .toast{z-index:80}
+.acct{position:relative}
+.acct-menu{position:absolute;right:0;top:calc(100% + 8px);background:var(--paper);border:1px solid #d8d9d0;min-width:180px;box-shadow:0 12px 32px #0002;z-index:30;border-radius:4px;overflow:hidden}
+.acct-menu button{display:block;width:100%;text-align:left;padding:12px 14px;font-size:12px;border:0;background:transparent}
+.acct-menu button:hover{background:#ecece5}
+.acct-menu .danger{color:#b3261e;border-top:1px solid #e7e7e0}
+.qty-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0 6px}
+.qty{display:inline-flex;align-items:center;border:1px solid #d8d9d0;border-radius:3px;background:#fff}
+.qty button{width:40px;height:40px;border:0;background:transparent;font-size:18px}
+.qty button:hover:not(:disabled){background:#ecece5}
+.qty span{min-width:42px;text-align:center;font-weight:700;font-size:13px}

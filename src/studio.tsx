@@ -12,7 +12,7 @@ const MAX_BYTES = 50 * 1024 * 1024
 
 type Draft = { id?: string; title: string; type: string; category: string; mode: 'fixed' | 'pay_what_you_want'; price: string; min: string; description: string; tracks: string; image: string; status: string; rights: boolean; rightsAt: boolean }
 const blank: Draft = { title: '', type: 'Album', category: 'music_artist', mode: 'fixed', price: '3500', min: '1000', description: '', tracks: '', image: '', status: 'draft', rights: false, rightsAt: false }
-type Order = { id: string; amount_minor: number; platform_fee_minor: number; paid_at: string; product: { title: string } | null }
+type Order = { id: string; amount_minor: number; platform_fee_minor: number; paid_at: string; quantity?: number; product: { title: string } | null }
 type Payout = { account_name: string; account_last4: string; bank_name: string | null } | null
 type FileRow = { id: string; title: string; position: number; size_bytes: number }
 
@@ -20,7 +20,7 @@ function Metric({ icon, label, value, note }: { icon: React.ReactNode; label: st
   return <div className="metric-card"><div className="metric-top"><span className="metric-icon">{icon}</span></div><span className="metric-label">{label}</span><strong>{value}</strong><span className="metric-foot">{note}</span></div>
 }
 
-export function ArtistStudio({ profile, setToast }: { profile: Profile; setToast: (m: string) => void; openRelease?: (r: Release) => void }) {
+export function ArtistStudio({ profile, setToast, onSignOut }: { profile: Profile; setToast: (m: string) => void; openRelease?: (r: Release) => void; onSignOut?: () => void }) {
   const [tab, setTab] = useState<'overview' | 'releases' | 'campaigns' | 'sales' | 'payouts'>('overview')
   const [products, setProducts] = useState<(Release & { status: string; raw: any })[]>([])
   const [campaigns, setCampaigns] = useState<CampaignProgress[]>([])
@@ -43,7 +43,7 @@ export function ArtistStudio({ profile, setToast }: { profile: Profile; setToast
     const [p, c, o, pay, k, comp, fc] = await Promise.all([
       supabase.from('products').select(STUDIO_SELECT).eq('creator_id', profile.id).order('created_at', { ascending: false }),
       supabase.from('campaigns').select('id').eq('creator_id', profile.id).order('created_at', { ascending: false }),
-      supabase.from('orders').select('id,amount_minor,platform_fee_minor,paid_at,product:products(title)').eq('creator_id', profile.id).eq('status', 'paid').order('paid_at', { ascending: false }).limit(100),
+      supabase.from('orders').select('id,amount_minor,platform_fee_minor,paid_at,quantity,product:products(title)').eq('creator_id', profile.id).eq('status', 'paid').order('paid_at', { ascending: false }).limit(100),
       supabase.from('artist_payouts').select('account_name,account_last4,bank_name').eq('profile_id', profile.id).maybeSingle(),
       supabase.from('categories').select('*').order('sort'),
       supabase.from('creator_compliance').select('uploader_terms_accepted_at,suspended_at,strikes').eq('profile_id', profile.id).maybeSingle(),
@@ -179,7 +179,7 @@ export function ArtistStudio({ profile, setToast }: { profile: Profile; setToast
 
   return <main className="page-main artist-dashboard">
     <div className="dashboard-top"><div><span className="section-kicker">CREATOR STUDIO</span><h1>Hi, <em>{profile.display_name}.</em></h1><p>Publish releases, run campaigns and get paid directly.</p></div>
-      <button className="btn btn-dark" onClick={() => { setD(blank); setTab('releases') }}><Plus size={18} /> New release</button></div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button className="btn btn-dark" onClick={() => { setD(blank); setTab('releases') }}><Plus size={18} /> New release</button>{onSignOut && <button className="btn btn-outline" onClick={onSignOut}>Sign out</button>}</div></div>
     {!profile.verified_artist && <div className="inline-alert"><ShieldCheck size={18} /><div><b>Awaiting verification</b><p>You can save drafts now. Uploading audio, publishing, campaigns and payouts unlock once the A Thousand Units team verifies your artist account.</p></div></div>}
     {standing.suspended && <div className="inline-alert"><ShieldCheck size={18} /><div><b>Your account is suspended from publishing</b><p>This follows repeated copyright removals. Contact support to discuss it.</p></div></div>}
     {!standing.suspended && standing.strikes > 0 && <div className="inline-alert"><ShieldCheck size={18} /><div><b>{standing.strikes} removal{standing.strikes > 1 ? 's' : ''} on your account</b><p>Three removals lead to suspension. Only upload audio you own or have permission to sell.</p></div></div>}
@@ -225,7 +225,7 @@ export function ArtistStudio({ profile, setToast }: { profile: Profile; setToast
       <div className="dashboard-panel"><div className="panel-head"><div><h2>Your releases</h2><p>{products.length} total</p></div></div><div className="mini-release-list">{products.length ? products.map(p => <div className="mini-release" key={p.id}>{p.image ? <img src={p.image} alt="" /> : <span className="metric-icon"><Disc3 /></span>}<div className="mini-release-name"><b>{p.title}</b><span>{p.categoryLabel ? `${p.categoryLabel} · ` : ''}{p.type} · {p.pricingMode === 'pay_what_you_want' ? `from ${money(p.minPrice || 0)}` : money(p.price)}</span></div><span className={`status-pill ${p.status !== 'published' ? 'draft-pill' : ''}`}><span />{p.status === 'published' ? 'Published' : p.status === 'removed' ? 'Removed' : p.status}</span>{p.status !== 'removed' && <button className="icon-btn" onClick={() => edit(p)} aria-label={`Edit ${p.title}`}><ArrowUpRight size={17} /></button>}</div>) : <p className="field-help">No releases yet.</p>}</div></div></div>}
 
     {tab === 'campaigns' && <>
-      <div className="dashboard-panel"><div className="panel-head"><div><h2>Start a campaign</h2><p>Set a goal in units. A unit is one paying fan. Milestones earn plaques after a 7 day confirmation period. Your own purchases and refunded orders never count.</p></div></div>
+      <div className="dashboard-panel"><div className="panel-head"><div><h2>Start a campaign</h2><p>Set a goal in units. A unit is one unit bought. Fans can buy up to 10 units in one order, and each counts. Milestones earn plaques after a 7 day confirmation period. Your own purchases and refunded orders never count.</p></div></div>
         <label className="field-label" htmlFor="c-rel">Release</label><select id="c-rel" className="field" value={cForm.productId} onChange={e => setCForm({ ...cForm, productId: e.target.value })}><option value="">Choose a published release</option>{published.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}</select>
         <label className="field-label" htmlFor="c-title">Campaign title</label><input id="c-title" className="field" maxLength={80} value={cForm.title} onChange={e => setCForm({ ...cForm, title: e.target.value })} placeholder="First 100 supporters" />
         <label className="field-label" htmlFor="c-goal">Goal (units, minimum 10)</label><input id="c-goal" className="field" type="number" min="10" value={cForm.goal} onChange={e => setCForm({ ...cForm, goal: e.target.value })} />
@@ -234,7 +234,7 @@ export function ArtistStudio({ profile, setToast }: { profile: Profile; setToast
       {campaigns.length ? <div className="campaign-list">{campaigns.map(c => <div key={c.id}><CampaignCard c={c} />{c.status === 'active' && <button className="text-link" onClick={() => endCampaign(c.id)}>End campaign</button>}</div>)}</div> : <p className="field-help">No campaigns yet.</p>}</>}
 
     {tab === 'sales' && <div className="dashboard-panel"><div className="panel-head"><div><h2>Sales</h2><p>Verified payments for your releases.</p></div></div>
-      {orders.length ? orders.map(o => <div className="check-row" key={o.id}><span>{o.product?.title || 'Release'} · {new Date(o.paid_at).toLocaleDateString('en-NG')}</span><b>{money(o.amount_minor / 100)}</b></div>) : <p className="field-help">No paid orders yet.</p>}</div>}
+      {orders.length ? orders.map(o => <div className="check-row" key={o.id}><span>{o.product?.title || 'Release'}{(o.quantity || 1) > 1 ? ` × ${o.quantity}` : ''} · {new Date(o.paid_at).toLocaleDateString('en-NG')}</span><b>{money(o.amount_minor / 100)}</b></div>) : <p className="field-help">No paid orders yet.</p>}</div>}
 
     {tab === 'payouts' && <div className="dashboard-panel"><div className="panel-head"><div><h2>Payouts</h2><p>Sales are split automatically and settle to your bank through Paystack.</p></div></div>
       {payout ? <div className="inline-alert"><ShieldCheck size={18} /><div><b>Payout account connected</b><p>{payout.account_name} · account ending {payout.account_last4}. To change it, contact support.</p></div></div>

@@ -33,17 +33,28 @@ export async function userFromRequest(req, db) {
 }
 
 // Decides what the buyer actually pays. The browser can only ASK for an amount; the server decides.
-export function resolveAmount(product, requestedNaira) {
+export const MAX_QUANTITY = 10               // units one fan can buy in a single order
+export const MAX_TOTAL_NAIRA = 1000000       // sanity cap on one whole order
+export function resolveAmount(product, requestedNaira, quantity) {
   if (!Number.isSafeInteger(product.price_minor) || product.price_minor < 100) {
     return { status: 400, error: 'Release price is invalid' }
   }
-  if (product.pricing_mode !== 'pay_what_you_want') return { amountMinor: product.price_minor }
-  const minNaira = Math.max(MIN_PWYW_NAIRA, Math.ceil((product.min_price_minor || 0) / 100))
-  const naira = requestedNaira === undefined || requestedNaira === null ? Math.round(product.price_minor / 100) : requestedNaira
-  if (!Number.isInteger(naira)) return { status: 400, error: 'Enter a whole naira amount' }
-  if (naira < minNaira) return { status: 400, error: `The minimum for this release is ₦${minNaira.toLocaleString('en-NG')}` }
-  if (naira > MAX_NAIRA) return { status: 400, error: `The maximum single payment is ₦${MAX_NAIRA.toLocaleString('en-NG')}` }
-  return { amountMinor: naira * 100 }
+  let unitMinor
+  if (product.pricing_mode !== 'pay_what_you_want') {
+    unitMinor = product.price_minor
+  } else {
+    const minNaira = Math.max(MIN_PWYW_NAIRA, Math.ceil((product.min_price_minor || 0) / 100))
+    const naira = requestedNaira === undefined || requestedNaira === null ? Math.round(product.price_minor / 100) : requestedNaira
+    if (!Number.isInteger(naira)) return { status: 400, error: 'Enter a whole naira amount' }
+    if (naira < minNaira) return { status: 400, error: `The minimum for this release is ₦${minNaira.toLocaleString('en-NG')}` }
+    if (naira > MAX_NAIRA) return { status: 400, error: `The maximum single payment is ₦${MAX_NAIRA.toLocaleString('en-NG')}` }
+    unitMinor = naira * 100
+  }
+  const qty = quantity === undefined || quantity === null ? 1 : quantity
+  if (!Number.isInteger(qty) || qty < 1 || qty > MAX_QUANTITY) return { status: 400, error: `Choose between 1 and ${MAX_QUANTITY} units` }
+  const total = unitMinor * qty
+  if (total > MAX_TOTAL_NAIRA * 100) return { status: 400, error: `One order is limited to ₦${MAX_TOTAL_NAIRA.toLocaleString('en-NG')}. Choose fewer units.` }
+  return { amountMinor: total, unitMinor, quantity: qty }
 }
 
 // Splits the payment between the platform and the artist's Paystack subaccount.

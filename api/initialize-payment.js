@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     const user = await userFromRequest(req, db)
     if (!user || !user.email) return res.status(401).json({ error: 'Please sign in to buy' })
 
-    const { productId, amount } = req.body || {}
+    const { productId, amount, quantity } = req.body || {}
     if (!isUuid(productId)) return res.status(400).json({ error: 'A valid release is required' })
 
     const { data: product } = await db.from('products')
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     const { data: owned } = await db.from('orders').select('id').eq('buyer_id', user.id).eq('product_id', product.id).eq('status', 'paid').limit(1)
     if (owned?.length) return res.status(409).json({ error: 'You already own this release' })
 
-    const priced = resolveAmount(product, amount)
+    const priced = resolveAmount(product, amount, quantity)
     if (priced.error) return res.status(priced.status).json({ error: priced.error })
 
     const { data: payout } = await db.from('artist_payouts').select('subaccount_code').eq('profile_id', product.creator_id).maybeSingle()
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     const reference = `atu_${crypto.randomUUID()}`
     const { data: order, error: orderError } = await db.from('orders').insert({
       buyer_id: user.id, buyer_email: user.email.toLowerCase(), product_id: product.id, creator_id: product.creator_id,
-      amount_minor: priced.amountMinor, currency: product.currency || 'NGN', payment_provider: 'paystack',
+      amount_minor: priced.amountMinor, quantity: priced.quantity, currency: product.currency || 'NGN', payment_provider: 'paystack',
       payment_reference: reference, status: 'pending', platform_fee_minor: split.fee, subaccount_code: payout?.subaccount_code ?? null
     }).select('id').single()
     if (orderError || !order) return res.status(500).json({ error: 'Could not create order' })
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
       method: 'POST', headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: user.email.toLowerCase(), amount: String(priced.amountMinor), currency: product.currency || 'NGN', reference,
-        callback_url: process.env.PAYSTACK_CALLBACK_URL, metadata: { order_id: order.id, product_id: product.id }, ...split.extra
+        callback_url: process.env.PAYSTACK_CALLBACK_URL, metadata: { order_id: order.id, product_id: product.id, quantity: priced.quantity }, ...split.extra
       })
     })
     const payload = await response.json().catch(() => null)
