@@ -5,6 +5,7 @@ import { apiCall, formatBytes, MIN_PWYW_NAIRA, PRODUCT_SELECT, TYPE_VALUE, mapPr
 import type { CampaignProgress, Category, Profile, Release } from './lib'
 import { CampaignCard } from './campaign'
 import { prepareCover } from './image'
+import { audioDuration } from './previews'
 import { UPLOADER_TERMS, UPLOADER_TERMS_VERSION, rightsStatement } from './terms'
 
 const STUDIO_SELECT = `${PRODUCT_SELECT},rights_confirmed_at`
@@ -32,6 +33,8 @@ export function ArtistStudio({ profile, setToast, onSignOut, onProfileUpdated }:
   const [followers, setFollowers] = useState(0)
   const [d, setD] = useState<Draft>(blank)
   const [files, setFiles] = useState<FileRow[]>([])
+  const [previews, setPreviews] = useState<FileRow[]>([])
+  const [uploadingPrev, setUploadingPrev] = useState('')
   const [uploading, setUploading] = useState('')
   const [coverBusy, setCoverBusy] = useState(false)
   const [termsTick, setTermsTick] = useState(false)
@@ -87,6 +90,12 @@ export function ArtistStudio({ profile, setToast, onSignOut, onProfileUpdated }:
     setD(prev => prev.id === productId && !prev.tracks.trim() && rows.length ? { ...prev, tracks: rows.map(r => r.title).join('\n') } : prev)
   }, [])
   useEffect(() => { if (d.id) loadFiles(d.id); else setFiles([]) }, [d.id, loadFiles])
+  const loadPreviews = useCallback(async (productId: string) => {
+    if (!supabase) return
+    const { data } = await supabase.from('product_previews').select('id,title,position,size_bytes').eq('product_id', productId).eq('status', 'active').order('position')
+    setPreviews((data as FileRow[]) || [])
+  }, [])
+  useEffect(() => { if (d.id) loadPreviews(d.id); else setPreviews([]) }, [d.id, loadPreviews])
 
   useEffect(() => {
     if (tab !== 'payouts' || payout || banks.length) return
@@ -182,6 +191,30 @@ export function ArtistStudio({ profile, setToast, onSignOut, onProfileUpdated }:
     if (!r.ok) return setToast(r.data?.error || 'Could not remove the file.')
     if (d.id) loadFiles(d.id)
   }
+  const PREVIEW_EXT: Record<string, string> = { mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg' }
+  const uploadPreview = async (list: FileList | null) => {
+    if (!supabase || !list || !d.id) return
+    if (!standing.accepted) return setToast('Accept the uploader terms first.')
+    for (const file of Array.from(list)) {
+      const ext = (file.name.split('.').pop() || '').toLowerCase()
+      if (!PREVIEW_EXT[ext]) { setToast(`${file.name}: previews must be MP3, M4A, AAC or OGG.`); continue }
+      if (file.size > 3 * 1024 * 1024) { setToast(`${file.name} is over 3 MB. Trim it to about 90 seconds.`); continue }
+      const secs = await audioDuration(file)
+      if (secs !== null && secs > 91) { setToast(`${file.name} is ${Math.round(secs)} seconds long. Previews can be up to 90 seconds.`); continue }
+      setUploadingPrev(file.name)
+      const path = `${profile.id}/${d.id}/p-${crypto.randomUUID()}.${ext}`
+      const up = await supabase.storage.from('audio').upload(path, file, { contentType: PREVIEW_EXT[ext], upsert: false })
+      if (up.error) { setToast(up.error.message); continue }
+      const r = await apiCall<any>('/api/register-preview', { auth: true, body: { productId: d.id, path, title: file.name.replace(/\.[^.]+$/, '').slice(0, 120) } })
+      if (!r.ok) setToast(r.data?.error || 'Could not add that preview.')
+    }
+    setUploadingPrev(''); loadPreviews(d.id)
+  }
+  const removePreview = async (id: string) => {
+    const r = await apiCall<any>('/api/remove-preview', { auth: true, body: { previewId: id } })
+    if (!r.ok) return setToast(r.data?.error || 'Could not remove the preview.')
+    if (d.id) loadPreviews(d.id)
+  }
 
   const startCampaign = async () => {
     if (!supabase || busy) return
@@ -257,6 +290,11 @@ export function ArtistStudio({ profile, setToast, onSignOut, onProfileUpdated }:
               <input type="file" accept=".mp3,.wav,.flac,.m4a,.aac,.ogg,audio/*" multiple hidden disabled={!canUpload || !!uploading} onChange={e => { upload(e.target.files); e.target.value = '' }} /></label>
             <span className="field-help">MP3, WAV, FLAC, M4A, AAC or OGG, up to 50 MB each. Files are private and only buyers can download them.{!canUpload ? ' Uploads need a verified account and accepted terms.' : ''}</span></div>
             : <p className="field-help">Save a draft first, then you can add your audio files.</p>}
+          {d.id && <div className="audio-files"><label className="field-label" style={{ marginTop: 0 }}>Preview clips <span className="optional">optional, anyone can play these</span></label>
+            {previews.length ? previews.map(f => <div className="audio-row" key={f.id}><Music2 size={15} /><b>{f.title}</b><span>{formatBytes(f.size_bytes)}</span><button className="icon-btn" aria-label={`Remove preview ${f.title}`} onClick={() => removePreview(f.id)}><Trash2 size={15} /></button></div>) : <p className="field-help">No previews yet. Previews help fans decide to buy.</p>}
+            <label className="btn btn-outline" style={{ cursor: canUpload && !uploadingPrev ? 'pointer' : 'not-allowed', opacity: canUpload ? 1 : .5 }}><Upload size={16} /> {uploadingPrev ? `Uploading ${uploadingPrev}...` : 'Add preview clip'}
+              <input type="file" accept=".mp3,.m4a,.aac,.ogg,audio/*" multiple hidden disabled={!canUpload || !!uploadingPrev} onChange={e => { uploadPreview(e.target.files); e.target.value = '' }} /></label>
+            <span className="field-help">MP3, M4A or OGG, up to 3 MB and 90 seconds each. Trim a clip from your track before uploading. Fans can play previews without buying.</span></div>}
           <label className="check-line"><input type="checkbox" checked={d.rights} disabled={d.rightsAt} onChange={e => setD({ ...d, rights: e.target.checked })} /> {rightsStatement(d.category)}</label>
           <div className="form-actions"><button className="btn btn-outline" disabled={busy} onClick={() => save(false)}>Save draft</button><button className="btn btn-dark" disabled={busy} onClick={() => save(true)}>{d.status === 'published' ? 'Save changes' : 'Publish release'} <ArrowUpRight size={17} /></button></div>
         </div></div></div>

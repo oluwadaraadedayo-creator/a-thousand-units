@@ -37,3 +37,17 @@ Notes
 - Reports arrive silently. Check the open reports query every day until email alerts are added.
 - Removed releases stay in the database. Buyers lose access to the files while a release is removed.
 - Delete audio files from Storage only when a release has been removed for good.
+
+## Make an account an artist (the Creator studio only appears for artist accounts)
+update public.profiles set role = 'artist', verified_artist = true
+where id = (select id from auth.users where email = 'person@example.com');
+
+## Check what role an account has
+select p.id, u.email, p.role, p.verified_artist
+from public.profiles p join auth.users u on u.id = p.id
+where u.email = 'person@example.com';
+
+## Preview clips
+- Previews are short clips that anyone can play on a release page. They are stored privately and served through short-lived links.
+- Taking a release down (takedown_product) stops its previews straight away.
+- To see a release's previews: select title, size_bytes, status from public.product_previews where product_id = 'PRODUCT-ID';

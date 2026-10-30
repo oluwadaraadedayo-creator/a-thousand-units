@@ -182,3 +182,13 @@ export function sniffImage(bytes) {
   if (s(0, 4) === 'RIFF' && s(8, 12) === 'WEBP') return { kind: 'webp', mime: 'image/webp' }
   return null
 }
+
+// ---------------------------------------------------------------------------
+// Preview clips (short, compressed, playable before buying)
+// ---------------------------------------------------------------------------
+export const MAX_PREVIEW_BYTES = 3145728         // 3 MB
+export const MAX_PREVIEWS_PER_RELEASE = 10
+export const PREVIEW_LINK_SECONDS = 3600
+export const PREVIEW_PATH = (userId, productId) => new RegExp(`^${userId}/${productId}/p-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(mp3|m4a|aac|ogg)$`, 'i')
+// Previews must be compressed formats. WAV and FLAC files are too large and would give the track away.
+export const previewKindOk = (kind, ext) => ['mp3', 'mp4', 'ogg'].includes(kind) && extMatchesKind(kind, ext)
