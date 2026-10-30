@@ -1,4 +1,5 @@
 import { applyCors, adminClient, isUuid, ipHash } from './_lib.js'
+import { alertAdminOfReport } from './_email.js'
 
 // Public copyright / content report intake. Reports are stored for an administrator to review.
 export default async function handler(req, res) {
@@ -32,6 +33,7 @@ export default async function handler(req, res) {
     }).select('id').single()
     if (error) { console.error('report insert failed', error.code); return res.status(500).json({ error: 'Could not record your report' }) }
     console.log('takedown report received', row.id)
+    await alertAdminOfReport(db, { reportId: row.id, productId: b.productId, reporterName: name, reporterEmail: email, relationship, description })   // never throws
     return res.status(200).json({ ok: true, reference: row.id })
   } catch (error) {
     console.error('report failed', error)

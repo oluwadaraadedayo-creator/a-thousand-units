@@ -1,6 +1,7 @@
 // Shared helpers for the payment API. Files starting with "_" are not exposed as endpoints by Vercel.
 import { createClient } from '@supabase/supabase-js'
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { sendReceiptOnce } from './_email.js'
 
 export const MIN_PWYW_NAIRA = 1000          // platform floor for pay-what-you-want
 export const MAX_NAIRA = 500000             // sanity cap per purchase
@@ -85,7 +86,7 @@ export async function confirmPayment(db, secret, reference) {
   const { data: order, error } = await db.from('orders')
     .select('id,amount_minor,currency,status,product_id,buyer_email').eq('payment_reference', reference).single()
   if (error || !order) return { code: 404, error: 'Order not found' }
-  if (order.status === 'paid') return { code: 200, verified: true, orderId: order.id, productId: order.product_id }
+  if (order.status === 'paid') { await sendReceiptOnce(db, order.id); return { code: 200, verified: true, orderId: order.id, productId: order.product_id } }
   if (['refunded', 'disputed'].includes(order.status)) return { code: 409, verified: false, error: 'This order is no longer active' }
   const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, { headers: { Authorization: `Bearer ${secret}` } })
   const payload = await response.json().catch(() => null)
@@ -105,7 +106,7 @@ export async function confirmPayment(db, secret, reference) {
     console.error('confirmPayment update failed', updateError.code, reference)
     return { code: updateError.code === '23505' ? 409 : 500, verified: false, error: updateError.code === '23505' ? 'You already own this release. Contact support for a refund.' : 'Verified payment could not be recorded' }
   }
-  if (!updated?.length) return { code: 200, verified: true, orderId: order.id, productId: order.product_id }
+  await sendReceiptOnce(db, order.id)   // never throws, and never blocks the payment from being confirmed
   return { code: 200, verified: true, orderId: order.id, productId: order.product_id }
 }
 
