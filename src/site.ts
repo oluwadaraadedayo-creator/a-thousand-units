@@ -5,10 +5,7 @@ export const SITE = {
   name: 'A Thousand Units',
   legalName: 'A Thousand Units Ltd',
   email: 'hello@athousandunits.com',
-  address: '1 Osamezu Close, Off Jejelaiye Street, Ajangbadi
-Off Jejelaiye Street, Ajangbadi
-Ojo, Lagos, 100001
-Nigeria',
+  address: '1 Osamezu Close, Off Jejelaiye Street, AjangbadiOff Jejelaiye Street, Ajangbadi Ojo, Lagos, 100001 Nigeria',
   country: 'Nigeria',
   platformFee: '20%',
   refundDays: '7',
