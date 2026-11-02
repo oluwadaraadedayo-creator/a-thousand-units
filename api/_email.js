@@ -136,3 +136,44 @@ export async function alertAdminOfReport(db, { reportId, productId, reporterName
     await sendEmail(db, { template: 'report_alert', ref: reportId, to, ...mail })
   } catch (e) { console.error('report alert failed', e?.message) }
 }
+
+// ---------------------------------------------------------------------------
+// Artist applications
+// ---------------------------------------------------------------------------
+const CRAFT_LABEL = { artist: 'Artist (music)', producer: 'Producer', dj: 'DJ', other: 'Other' }
+
+export function applicationAlertEmail({ stageName, craft, applicantName, applicantEmail, links, bio }) {
+  const adminUrl = safeUrl(String(process.env.ADMIN_URL || '').replace(/\/+$/, ''))
+  const subject = `New artist application: ${oneLine(stageName, 60)}`
+  const linkLines = String(links ?? '').split('\n').map((l) => l.trim()).filter(Boolean)
+  const html = wrap(`<h1 style="font-size:20px;margin:0 0 10px">A new artist application is waiting</h1>
+<table style="width:100%;border-collapse:collapse;font-size:14px">${row('Stage name', esc(stageName))}${row('Makes', esc(CRAFT_LABEL[craft] || craft))}${row('Account', `${esc(applicantName)} (${esc(applicantEmail)})`)}</table>
+<p style="margin:16px 0 6px;color:#6f7168;font-size:12px">Links to their music</p>
+<p style="margin:0 0 14px">${linkLines.map(esc).join('<br>')}</p>
+${bio ? `<p style="margin:0 0 6px;color:#6f7168;font-size:12px">About them</p><p style="border-left:3px solid #d4ff3f;padding:2px 12px;margin:0 0 18px">${esc(bio).replace(/\n/g, '<br>')}</p>` : ''}
+${adminUrl ? `<p><a href="${esc(adminUrl)}" style="background:#191a17;color:#fff;padding:11px 18px;border-radius:3px;text-decoration:none;font-weight:600">Open the admin</a></p>` : ''}
+<p style="font-size:12px;color:#6f7168">Open Applications in the admin to approve or turn it down. Check their links first.</p>`)
+  const text = ['A new artist application is waiting', '', `Stage name: ${oneLine(stageName, 80)}`, `Makes: ${CRAFT_LABEL[craft] || oneLine(craft, 30)}`, `Account: ${oneLine(applicantName, 80)} (${oneLine(applicantEmail, 200)})`, '', 'Links to their music:', ...linkLines, ...(bio ? ['', 'About them:', String(bio)] : []), '', adminUrl ? `Admin: ${adminUrl}` : 'Open Applications in the admin to approve or turn it down.'].join('\n')
+  return { subject, html, text }
+}
+
+export function applicationReceivedEmail({ stageName }) {
+  const site = safeUrl(siteRoot())
+  const subject = 'We received your application to A Thousand Units'
+  const html = wrap(`<h1 style="font-size:22px;margin:0 0 10px">Thank you for applying</h1>
+<p>We received your application for <b>${esc(stageName)}</b>. Our team will look at your music and reply to you by email. You do not need to do anything else for now.</p>
+<p style="font-size:13px;color:#6f7168">Keep an eye on this inbox, and check your spam folder too. If we need anything more, we will ask.</p>
+${site ? `<p style="margin:20px 0"><a href="${esc(site)}/" style="color:#191a17">Back to A Thousand Units</a></p>` : ''}`)
+  const text = ['Thank you for applying', '', `We received your application for ${oneLine(stageName, 80)}. Our team will look at your music and reply to you by email. You do not need to do anything else for now.`, '', 'Check your spam folder too. If we need anything more, we will ask.', ...(site ? ['', `${site}/`] : [])].join('\n')
+  return { subject, html, text }
+}
+
+// Tell the administrators, and confirm to the applicant. Neither can throw or block the application.
+export async function notifyApplication(db, { applicationId, applicantName, applicantEmail, stageName, craft, links, bio }) {
+  try {
+    const to = adminRecipients()
+    if (to.length) await sendEmail(db, { template: 'application_alert', ref: applicationId, to, ...applicationAlertEmail({ stageName, craft, applicantName, applicantEmail, links, bio }) })
+    else await record(db, { template: 'application_alert', ref: applicationId, status: 'skipped', error: 'ADMIN_ALERT_EMAIL is not configured' })
+    await sendEmail(db, { template: 'application_received', ref: applicationId, to: applicantEmail, ...applicationReceivedEmail({ stageName }) })
+  } catch (e) { console.error('application emails failed', e?.message) }
+}

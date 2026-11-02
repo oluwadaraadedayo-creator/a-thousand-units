@@ -127,3 +127,19 @@
 .footer-bottom a{font-size:9px;color:#6e7068;text-decoration:none;padding:0}
 .footer-bottom a:hover{color:var(--ink)}
 .check-line a,.checkout-terms a{text-decoration:underline}
+
+/* Artist application page */
+.apply-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:28px 0}
+.apply-step{border:1px solid #dfdfd7;background:#fbfaf7;padding:22px}
+.apply-step span{display:inline-flex;width:28px;height:28px;border-radius:50%;background:#d4ff3f;color:#1c1e16;font-weight:700;font-size:12px;align-items:center;justify-content:center}
+.apply-step b{display:block;font-family:var(--serif);font-size:17px;letter-spacing:-.03em;margin:12px 0 6px}
+.apply-step p{margin:0;font-size:12px;line-height:1.7;color:#6d7066}
+.apply-two{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin:8px 0 28px}
+.apply-two h3{font-family:var(--serif);font-size:16px;letter-spacing:-.03em;margin:0 0 8px}
+.apply-two ul{margin:0 0 10px;padding-left:18px;font-size:12px;line-height:1.8;color:#4b4d44}
+.apply-card{max-width:620px;border:1px solid #dfdfd7;background:#fbfaf7;padding:24px;margin:0 0 18px}
+.apply-card h2{font-family:var(--serif);font-size:22px;letter-spacing:-.04em;margin:0 0 10px}
+.apply-card p{font-size:13px;line-height:1.7}
+.apply-note{border-color:#e2c27a;background:#fbf3df}
+.apply-quote{border-left:3px solid #d4ff3f;padding:2px 12px}
+@media(max-width:760px){.apply-grid,.apply-two{grid-template-columns:1fr}}

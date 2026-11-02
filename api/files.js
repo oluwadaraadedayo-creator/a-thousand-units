@@ -1,4 +1,4 @@
-// One serverless function that serves seven endpoints, so the project stays under Vercel's 12 function limit on the free plan.
+// One serverless function that serves several endpoints (the file endpoints and the artist application), so the project stays under Vercel's 12 function limit on the free plan.
 // The web addresses do not change: vercel.json rewrites /api/register-audio (and the others) to this function.
 //
 // To add another endpoint like these, put its handler in api/_handlers/, add it to ROUTES below, and add a matching
@@ -11,6 +11,7 @@ import removePreview from './_handlers/remove-preview.js'
 import registerArtwork from './_handlers/register-artwork.js'
 import download from './_handlers/download.js'
 import previews from './_handlers/previews.js'
+import apply from './_handlers/apply.js'
 
 export const ROUTES = {
   'register-audio': registerAudio,
@@ -19,7 +20,8 @@ export const ROUTES = {
   'remove-preview': removePreview,
   'register-artwork': registerArtwork,
   'download': download,
-  'previews': previews
+  'previews': previews,
+  'apply': apply
 }
 export const ROUTE_NAMES = Object.keys(ROUTES)
 

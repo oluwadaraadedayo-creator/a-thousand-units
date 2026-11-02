@@ -27,6 +27,10 @@
     {
       "source": "/api/previews",
       "destination": "/api/files?route=previews"
+    },
+    {
+      "source": "/api/apply",
+      "destination": "/api/files?route=apply"
     }
   ]
 }
