@@ -24,11 +24,18 @@ export const adminRecipients = () => validEmails(String(process.env.ADMIN_ALERT_
 // ---------------------------------------------------------------------------
 // The one place that talks to the provider
 // ---------------------------------------------------------------------------
+// The sender address, tidied. A pasted value often carries quotation marks, spaces or a line break, which the email provider rejects.
+const cleanFrom = () => String(process.env.EMAIL_FROM || '').replace(/[\r\n\u2028\u2029]+/g, ' ').trim().replace(/^["'`\u201c\u201d]+|["'`\u201c\u201d]+$/g, '').trim()
+const validFrom = (f) => /^[^<>@\s][^<>]*<[^<>@\s]+@[^<>@\s]+\.[^<>@\s]+>$/.test(f) || /^[^<>@\s]+@[^<>@\s]+\.[^<>@\s]+$/.test(f)
+const senderOnly = (f) => { const m = f.match(/<([^<>]+)>$/); return (m ? m[1] : f).slice(0, 120) }
+
 async function deliver({ to, subject, html, text }) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), Number(process.env.EMAIL_TIMEOUT_MS) || 5000)
   try {
-    const body = { from: process.env.EMAIL_FROM, to, subject, html, text }
+    const from = cleanFrom()
+    if (!validFrom(from)) return { ok: false, error: `EMAIL_FROM is not valid. It must look like: Name <hello@yourdomain.com>. Right now it starts with: ${from.slice(0, 15) || '(empty)'}` }
+    const body = { from, to, subject, html, text }
     if (process.env.EMAIL_REPLY_TO) body.reply_to = process.env.EMAIL_REPLY_TO
     const res = await fetch(RESEND_URL, {
       method: 'POST', signal: controller.signal,
@@ -54,7 +61,9 @@ export async function sendEmail(db, { template, ref, to, subject, html, text }) 
     if (!emailConfigured()) { await record(db, { template, ref: ref ?? null, status: 'skipped', error: 'Email is not configured' }); return { ok: false, skipped: true } }
     if (!recipients.length) { await record(db, { template, ref: ref ?? null, status: 'failed', error: 'No valid recipient' }); return { ok: false, error: 'No valid recipient' } }
     const r = await deliver({ to: recipients, subject: oneLine(subject, 200), html, text })
-    await record(db, { template, ref: ref ?? null, status: r.ok ? 'sent' : 'failed', provider_id: r.id ?? null, error: r.ok ? null : r.error })
+    const sender = senderOnly(cleanFrom())
+    const hint = /@resend\.dev$/i.test(sender) ? ' This is Resend\'s test address. Use an address on your verified domain.' : ''
+    await record(db, { template, ref: ref ?? null, status: r.ok ? 'sent' : 'failed', provider_id: r.id ?? null, error: r.ok ? null : `${r.error} [sender used: ${sender}]${hint}`.slice(0, 500) })
     if (!r.ok) console.error('email failed', template, r.error)
     return r
   } catch (e) { console.error('sendEmail crashed', template, e?.message); return { ok: false, error: 'Unexpected email error' } }
