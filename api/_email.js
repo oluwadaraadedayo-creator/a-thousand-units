@@ -79,15 +79,16 @@ const row = (k, v) => `<tr><td style="padding:8px 0;color:#6f7168;width:38%;bord
 export function receiptEmail({ title, artist, quantity = 1, amountMinor, currency = 'NGN', reference, paidAt }) {
   const site = safeUrl(siteRoot()); const date = paidAt ? new Date(paidAt).toLocaleDateString('en-NG', { dateStyle: 'long' }) : ''
   const units = Number(quantity) > 1 ? `${quantity} units (you get one copy, the extra units support the artist)` : ''
+  const chargedBy = oneLine(String(process.env.CHARGED_BY_NAME || '').replace(/[<>]/g, ''), 60)
   const subject = `Your receipt for "${oneLine(title, 80)}"`
   const html = wrap(`<h1 style="font-size:22px;margin:0 0 10px">Thank you for your purchase</h1>
 <p style="margin:0 0 16px">You bought <b>${esc(title)}</b> by ${esc(artist)}. It is now in your library.</p>
 <table style="width:100%;border-collapse:collapse;font-size:14px">${row('Release', esc(title))}${row('Artist', esc(artist))}${units ? row('Units', esc(units)) : ''}${row('Amount paid', `<b>${esc(money(amountMinor, currency))}</b>`)}${date ? row('Date', esc(date)) : ''}${row('Reference', `<code>${esc(reference)}</code>`)}</table>
 ${site ? `<p style="margin:20px 0"><a href="${esc(site)}/" style="background:#191a17;color:#fff;padding:11px 18px;border-radius:3px;text-decoration:none;font-weight:600">Open A Thousand Units</a></p><p style="font-size:13px">Sign in and open <b>My Library</b> to listen and download.</p>` : '<p style="font-size:13px">Sign in and open <b>My Library</b> to listen and download.</p>'}
-<p style="font-size:12px;color:#6f7168;margin-top:22px">Download links expire after 10 minutes. You can get fresh ones any time from the release page.${site ? ` Our <a href="${esc(site)}/#/refunds" style="color:#6f7168">refund policy</a> explains what to do if something is wrong.` : ''} Keep the reference above if you need to contact us.</p>`)
+<p style="font-size:12px;color:#6f7168;margin-top:22px">Download links expire after 10 minutes. You can get fresh ones any time from the release page.${site ? ` Our <a href="${esc(site)}/#/refunds" style="color:#6f7168">refund policy</a> explains what to do if something is wrong.` : ''} ${chargedBy ? ` Your payment was collected by ${esc(chargedBy)} on behalf of A Thousand Units.` : ''} Keep the reference above if you need to contact us.</p>`)
   const text = [`Thank you for your purchase`, ``, `You bought "${oneLine(title, 200)}" by ${oneLine(artist, 100)}. It is now in your library.`, ``,
     `Release: ${oneLine(title, 200)}`, `Artist: ${oneLine(artist, 100)}`, ...(units ? [`Units: ${units}`] : []), `Amount paid: ${money(amountMinor, currency)}`, ...(date ? [`Date: ${date}`] : []), `Reference: ${oneLine(reference, 100)}`, ``,
-    `Sign in and open My Library to listen and download.${site ? ` ${site}/` : ''}`, `Download links expire after 10 minutes. You can get fresh ones any time from the release page.`, ...(site ? [`Refund policy: ${site}/#/refunds`] : [])].join('\n')
+    `Sign in and open My Library to listen and download.${site ? ` ${site}/` : ''}`, `Download links expire after 10 minutes. You can get fresh ones any time from the release page.`, ...(chargedBy ? [`Your payment was collected by ${chargedBy} on behalf of A Thousand Units.`] : []), ...(site ? [`Refund policy: ${site}/#/refunds`] : [])].join('\n')
   return { subject, html, text }
 }
 

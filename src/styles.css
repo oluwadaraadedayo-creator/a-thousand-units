@@ -155,3 +155,7 @@
 .status-pill.sale-paid{background:#e6f1d6;color:#2f5a14}
 .status-pill.sale-refunded{background:#f4e6d6;color:#7a4a14}
 .status-pill.sale-disputed{background:#f6dada;color:#8a1f1f}
+
+/* Who collects the payment, shown at checkout */
+.charged-by{margin:12px 0;font-size:13px;letter-spacing:.01em;color:#4b4d44}
+.charged-by b{color:#1c1e16;font-weight:700}

@@ -47,6 +47,8 @@ function App(){
  const [owned,setOwned]=useState<Release[]>([])
  const [libVersion,setLibVersion]=useState(0)
  const [paying,setPaying]=useState(false)
+ const [chargedBy,setChargedBy]=useState('')
+ useEffect(()=>{ if(page!=='checkout'||chargedBy)return; apiCall<{chargedBy?:string}>('/api/config',{method:'GET'}).then(r=>{ if(r.ok&&typeof r.data?.chargedBy==='string')setChargedBy(r.data.chargedBy) }) },[page])
  const [payAmount,setPayAmount]=useState('')
  const [quantity,setQuantity]=useState(1)
  const [campaign,setCampaign]=useState<CampaignProgress|null>(null)
@@ -209,6 +211,7 @@ function App(){
   <div className="checkout-total"><span>Total{quantity>1?` · ${quantity} units`:''}</span><strong>{money((selected.pricingMode==='pay_what_you_want'?(Number(payAmount)||0):selected.price)*quantity)}</strong></div>
   {session?<p className="field-help">Your receipt and access are linked to {session.user.email}.</p>:<div className="inline-alert"><LockKeyhole size={18}/><div><b>Sign in to buy</b><p>Your purchase is saved to your account so it follows you to any device.</p></div></div>}
   <div className="payment-placeholder"><Wallet size={19}/><div><b>Secure payment with Paystack</b><span>You will be taken to Paystack to pay.</span></div><LockKeyhole size={16}/></div>
+  {chargedBy&&<p className="charged-by">A Thousand Units Charged By <b>{chargedBy}</b></p>}
   <button className="btn btn-dark full-btn" disabled={paying} onClick={payNow}>{session?(paying?'Please wait...':'Continue to payment'):'Sign in to continue'} <ArrowRight size={18}/></button>
   <p className="checkout-terms"><LockKeyhole size={13}/><span>By paying you agree to our <a href="#/terms" target="_blank" rel="noopener">Terms</a> and <a href="#/refunds" target="_blank" rel="noopener">refund policy</a>. Your payment is confirmed by our server before anything is unlocked.</span></p></div><div className="checkout-assurance"><div><ShieldCheck/><span>Every payment<br/>verified</span></div><div><Library/><span>Your releases<br/>in one library</span></div><div><Headphones/><span>Support the artist<br/>directly</span></div></div></div></main>}
   {page==='library'&&<main className="page-main"><div className="page-title-row"><div><span className="section-kicker">YOUR COLLECTION</span><h1>My <em>Library.</em></h1><p>Your purchased releases, all in one place.</p></div>{session&&<div className="library-user"><div className="user-circle">{(profile?.display_name||session.user.email||'F')[0].toUpperCase()}</div><span>{profile?.display_name||'Account'}<br/><button className="text-link" onClick={signOut}>Sign out</button></span></div>}</div>
