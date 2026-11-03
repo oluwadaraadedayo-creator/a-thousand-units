@@ -1,4 +1,4 @@
-import { applyCors, adminClient, userFromRequest } from './_lib.js'
+import { applyCors, adminClient, userFromRequest, platformFeePercent } from './_lib.js'
 
 // Registers an artist's bank account with Paystack so sales settle straight to them.
 // The account number goes to Paystack only. We keep the subaccount code and the last 4 digits.
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     const resolvedBody = await resolved.json().catch(() => null)
     if (!resolved.ok || !resolvedBody?.data?.account_name) return res.status(422).json({ error: 'We could not verify that account. Check the bank and number.' })
 
-    const pct = Number(process.env.PLATFORM_FEE_PERCENT ?? 10)
+    const pct = platformFeePercent().value
     const created = await fetch('https://api.paystack.co/subaccount', {
       method: 'POST', headers,
       body: JSON.stringify({ business_name: profile.display_name, settlement_bank: bankCode, account_number: accountNumber, percentage_charge: pct })

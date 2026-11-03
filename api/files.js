@@ -12,6 +12,7 @@ import registerArtwork from './_handlers/register-artwork.js'
 import download from './_handlers/download.js'
 import previews from './_handlers/previews.js'
 import apply from './_handlers/apply.js'
+import config from './_handlers/config.js'
 
 export const ROUTES = {
   'register-audio': registerAudio,
@@ -21,7 +22,8 @@ export const ROUTES = {
   'register-artwork': registerArtwork,
   'download': download,
   'previews': previews,
-  'apply': apply
+  'apply': apply,
+  'config': config
 }
 export const ROUTE_NAMES = Object.keys(ROUTES)
 

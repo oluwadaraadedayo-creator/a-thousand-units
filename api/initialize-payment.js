@@ -1,4 +1,4 @@
-import { applyCors, adminClient, userFromRequest, isUuid, resolveAmount, splitFor } from './_lib.js'
+import { applyCors, adminClient, userFromRequest, isUuid, resolveAmount, splitFor, platformFeePercent } from './_lib.js'
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     }
     const split = splitFor({
       amountMinor: priced.amountMinor, subaccountCode: payout?.subaccount_code,
-      feePercent: Number(process.env.PLATFORM_FEE_PERCENT ?? 10), bearer: process.env.PAYSTACK_FEE_BEARER
+      feePercent: platformFeePercent().value, bearer: process.env.PAYSTACK_FEE_BEARER
     })
 
     const reference = `atu_${crypto.randomUUID()}`

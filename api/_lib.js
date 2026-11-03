@@ -58,6 +58,23 @@ export function resolveAmount(product, requestedNaira, quantity) {
   return { amountMinor: total, unitMinor, quantity: qty }
 }
 
+// The platform fee, read from PLATFORM_FEE_PERCENT in one place so every part of the system agrees.
+// Accepts 20 or 20% (a pasted percent sign is a common slip). Anything unreadable falls back to 10 and says so ("invalid").
+export function platformFeePercent() {
+  const raw = process.env.PLATFORM_FEE_PERCENT
+  if (raw === undefined || String(raw).trim() === '') return { value: 10, source: 'default' }
+  const text = String(raw).trim().replace(/%$/, '').trim()
+  const n = /^\d+(\.\d+)?$/.test(text) ? Number(text) : NaN
+  if (!Number.isFinite(n) || n < 0 || n > 50) return { value: 10, source: 'invalid' }
+  return { value: n, source: 'env' }
+}
+
+// Which Paystack mode the secret key belongs to. Never returns the key itself.
+export function paystackMode() {
+  const k = String(process.env.PAYSTACK_SECRET_KEY || '')
+  return k.startsWith('sk_live_') ? 'live' : k.startsWith('sk_test_') ? 'test' : 'none'
+}
+
 // Splits the payment between the platform and the artist's Paystack subaccount.
 export function splitFor({ amountMinor, subaccountCode, feePercent, bearer }) {
   if (!subaccountCode) return { fee: 0, extra: {} }
