@@ -4,6 +4,7 @@ import { supabase } from './supabase'
 import { apiCall, formatBytes, MIN_PWYW_NAIRA, PRODUCT_SELECT, TYPE_VALUE, mapProduct, money } from './lib'
 import type { CampaignProgress, Category, Profile, Release } from './lib'
 import { CampaignCard } from './campaign'
+import { SalesTab } from './sales'
 import { prepareCover } from './image'
 import { audioDuration } from './previews'
 import { UPLOADER_TERMS, UPLOADER_TERMS_VERSION, rightsStatement } from './terms'
@@ -309,11 +310,11 @@ export function ArtistStudio({ profile, setToast, onSignOut, onProfileUpdated }:
         <button className="btn btn-dark" disabled={busy || !profile.verified_artist} onClick={startCampaign}>Start campaign</button></div>
       {campaigns.length ? <div className="campaign-list">{campaigns.map(c => <div key={c.id}><CampaignCard c={c} />{c.status === 'active' && <button className="text-link" onClick={() => endCampaign(c.id)}>End campaign</button>}</div>)}</div> : <p className="field-help">No campaigns yet.</p>}</>}
 
-    {tab === 'sales' && <div className="dashboard-panel"><div className="panel-head"><div><h2>Sales</h2><p>Verified payments for your releases.</p></div></div>
-      {orders.length ? orders.map(o => <div className="check-row" key={o.id}><span>{o.product?.title || 'Release'}{(o.quantity || 1) > 1 ? ` × ${o.quantity}` : ''} · {new Date(o.paid_at).toLocaleDateString('en-NG')}</span><b>{money(o.amount_minor / 100)}</b></div>) : <p className="field-help">No paid orders yet.</p>}</div>}
+    {tab === 'sales' && <SalesTab setToast={setToast} />}
 
-    {tab === 'payouts' && <div className="dashboard-panel"><div className="panel-head"><div><h2>Payouts</h2><p>Sales are split automatically and settle to your bank through Paystack.</p></div></div>
-      {payout ? <div className="inline-alert"><ShieldCheck size={18} /><div><b>Payout account connected</b><p>{payout.account_name} · account ending {payout.account_last4}. To change it, contact support.</p></div></div>
+    {tab === 'payouts' && <div className="dashboard-panel"><div className="panel-head"><div><h2>Payouts</h2><p>Your share of every sale is paid to your bank automatically. There is nothing to withdraw.</p></div></div>
+      {payout ? <><div className="inline-alert"><ShieldCheck size={18} /><div><b>Payout account connected</b><p>{payout.account_name} · account ending {payout.account_last4}. To change it, contact support.</p></div></div>
+        <p className="field-help">Each time a fan buys, Paystack sends your share to this account on its settlement schedule, usually within a few business days. Open Sales to see every payment, your share and its reference. If a payment has not arrived after a few business days, send support the reference from the Sales tab.</p></>
         : !profile.verified_artist ? <p className="field-help">Payouts unlock after verification.</p>
         : <><label className="field-label" htmlFor="p-bank">Bank</label><select id="p-bank" className="field" value={bank.code} onChange={e => setBank({ ...bank, code: e.target.value })}><option value="">{banks.length ? 'Choose your bank' : 'Loading banks...'}</option>{banks.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}</select>
           <label className="field-label" htmlFor="p-num">Account number</label><input id="p-num" className="field" inputMode="numeric" maxLength={10} value={bank.number} onChange={e => setBank({ ...bank, number: e.target.value.replace(/\D/g, '') })} autoComplete="off" />

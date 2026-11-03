@@ -143,3 +143,15 @@
 .apply-note{border-color:#e2c27a;background:#fbf3df}
 .apply-quote{border-left:3px solid #d4ff3f;padding:2px 12px}
 @media(max-width:760px){.apply-grid,.apply-two{grid-template-columns:1fr}}
+
+/* Sales and earnings */
+.table-scroll{overflow-x:auto;margin:14px 0}
+.sales-table{width:100%;border-collapse:collapse;font-size:12px}
+.sales-table th{text-align:left;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6d7066;padding:8px 10px;border-bottom:1px solid #dfdfd7;white-space:nowrap}
+.sales-table td{padding:10px;border-bottom:1px solid #ecece5;vertical-align:top}
+.sales-table code{font-size:11px;color:#6d7066}
+.row-tools{display:flex;gap:10px;align-items:center;margin:14px 0}
+.row-tools .field{width:auto;margin:0}
+.status-pill.sale-paid{background:#e6f1d6;color:#2f5a14}
+.status-pill.sale-refunded{background:#f4e6d6;color:#7a4a14}
+.status-pill.sale-disputed{background:#f6dada;color:#8a1f1f}
