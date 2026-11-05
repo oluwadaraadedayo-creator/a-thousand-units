@@ -31,7 +31,7 @@ export function AuthPage({ onDone, setToast, note }: { onDone: () => void; setTo
         if (error) throw error
         onDone()
       } else {
-        const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { display_name: name.trim() } } })
+        const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { display_name: name.trim() }, emailRedirectTo: siteUrl() } })
         if (error) throw error
         if (data.session) onDone(); else { setToast('Check your email to confirm your account, then sign in.'); setMode('signin') }
       }
